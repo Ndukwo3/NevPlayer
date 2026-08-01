@@ -38,6 +38,11 @@ namespace NevPlayer.App.Views
                 wmp.PlaybackFailed += Engine_PlaybackFailed;
                 wmp.MediaEnded     += Engine_MediaEnded;
             }
+
+            // Hook up context menus and sub-menus
+            PlayerContextMenu.Opening += PlayerContextMenu_Opening;
+            SubtitleMenuFlyout.Opening += SubtitleMenuFlyout_Opening;
+            AudioMenuFlyout.Opening += AudioMenuFlyout_Opening;
         }
 
         private void OsdTimer_Tick(object? sender, object e)
@@ -247,18 +252,9 @@ namespace NevPlayer.App.Views
             _playbackService.Next();
         }
 
-        // --- Subtitle System ---
-        private double _currentSubtitleDelay = 0.0;
+        // --- Subtitle & Audio Track Selection UI logic ---
 
-        private void SubtitleToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_playbackService != null && sender is ToggleSwitch toggleSwitch)
-            {
-                _playbackService.SetSubtitleVisibility(toggleSwitch.IsOn);
-            }
-        }
-
-        private async void LoadSubtitle_Click(object sender, RoutedEventArgs e)
+        private async void LoadSubtitle_Click(object? sender, RoutedEventArgs e)
         {
             var picker = new Windows.Storage.Pickers.FileOpenPicker();
             
@@ -283,45 +279,236 @@ namespace NevPlayer.App.Views
             }
         }
 
+        private UIElement? GetAppTitleBar()
+        {
+            var app = Application.Current as App;
+            var win = app?.MainWindow;
+            if (win?.Content is ShellPage shell)
+            {
+                return shell.AppTitleBarElement;
+            }
+            if (win?.Content is Frame frame && frame.Content is ShellPage shellPage)
+            {
+                return shellPage.AppTitleBarElement;
+            }
+            return null;
+        }
+
+        private void PlayerContextMenu_Opening(object? sender, object e)
+        {
+            var menu = PlayerContextMenu;
+            menu.Items.Clear();
+
+            // Open File option
+            var openItem = new MenuFlyoutItem { Text = "Open File...", Icon = new SymbolIcon(Symbol.OpenFile) };
+            openItem.Click += AddPlaylist_Click;
+            menu.Items.Add(openItem);
+
+            menu.Items.Add(new MenuFlyoutSeparator());
+
+            // Playback Options sub-menu
+            var playbackSubMenu = new MenuFlyoutSubItem { Text = "Playback" };
+            var playItem = new MenuFlyoutItem { Text = _playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing ? "Pause" : "Play" };
+            playItem.Click += PlayPause_Click;
+            playbackSubMenu.Items.Add(playItem);
+            
+            var stopItem = new MenuFlyoutItem { Text = "Stop" };
+            stopItem.Click += (s, a) => _playbackService.Stop();
+            playbackSubMenu.Items.Add(stopItem);
+            menu.Items.Add(playbackSubMenu);
+
+            // Subtitles sub-menu (PotPlayer layout)
+            var subtitleSubMenu = new MenuFlyoutSubItem { Text = "Subtitles" };
+            PopulateSubtitleMenuHelper(subtitleSubMenu.Items);
+            menu.Items.Add(subtitleSubMenu);
+
+            // Audio sub-menu (PotPlayer layout)
+            var audioSubMenu = new MenuFlyoutSubItem { Text = "Audio" };
+            PopulateAudioMenuHelper(audioSubMenu.Items);
+            menu.Items.Add(audioSubMenu);
+
+            // Aspect Ratio sub-menu
+            var arSubMenu = new MenuFlyoutSubItem { Text = "Aspect Ratio" };
+            var arFit = new MenuFlyoutItem { Text = "Fit (Uniform)" };
+            arFit.Click += (s, a) => { if (VideoSurface != null) { VideoSurface.Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform; ShowOsd("Aspect: Fit"); } };
+            var arFill = new MenuFlyoutItem { Text = "Fill (UniformToFill)" };
+            arFill.Click += (s, a) => { if (VideoSurface != null) { VideoSurface.Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill; ShowOsd("Aspect: Fill"); } };
+            var arStretch = new MenuFlyoutItem { Text = "Stretch" };
+            arStretch.Click += (s, a) => { if (VideoSurface != null) { VideoSurface.Stretch = Microsoft.UI.Xaml.Media.Stretch.Fill; ShowOsd("Aspect: Stretch"); } };
+            arSubMenu.Items.Add(arFit);
+            arSubMenu.Items.Add(arFill);
+            arSubMenu.Items.Add(arStretch);
+            menu.Items.Add(arSubMenu);
+
+            menu.Items.Add(new MenuFlyoutSeparator());
+
+            // Fullscreen option
+            var titleBar = GetAppTitleBar();
+            var fsItem = new ToggleMenuFlyoutItem { Text = "Fullscreen", IsChecked = titleBar == null || titleBar.Visibility == Visibility.Collapsed };
+            fsItem.Click += (s, a) =>
+            {
+                var app = Application.Current as App;
+                var win = app?.MainWindow;
+                if (win != null)
+                {
+                    var presenter = win.AppWindow.Presenter;
+                    var bar = GetAppTitleBar();
+                    if (presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
+                    {
+                        win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
+                        if (bar != null) bar.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
+                        if (bar != null) bar.Visibility = Visibility.Collapsed;
+                    }
+                }
+            };
+            menu.Items.Add(fsItem);
+        }
+
+        private void SubtitleMenuFlyout_Opening(object? sender, object e)
+        {
+            SubtitleMenuFlyout.Items.Clear();
+            PopulateSubtitleMenuHelper(SubtitleMenuFlyout.Items);
+        }
+
+        private void AudioMenuFlyout_Opening(object? sender, object e)
+        {
+            AudioMenuFlyout.Items.Clear();
+            PopulateAudioMenuHelper(AudioMenuFlyout.Items);
+        }
+
+        private void PopulateSubtitleMenuHelper(System.Collections.Generic.IList<MenuFlyoutItemBase> itemsList)
+        {
+            // Show/Hide Subtitles Toggle
+            var isSubVisible = true; // Default to true
+            var showHideToggle = new ToggleMenuFlyoutItem { Text = "Show/Hide Subtitles", IsChecked = isSubVisible };
+            showHideToggle.Click += (s, a) =>
+            {
+                isSubVisible = !isSubVisible;
+                _playbackService.SetSubtitleVisibility(isSubVisible);
+                ShowOsd(isSubVisible ? "Subtitles: Enabled" : "Subtitles: Disabled");
+            };
+            itemsList.Add(showHideToggle);
+
+            // Load External Subtitle
+            var loadExtItem = new MenuFlyoutItem { Text = "Load External Subtitle..." };
+            loadExtItem.Click += LoadSubtitle_Click;
+            itemsList.Add(loadExtItem);
+
+            itemsList.Add(new MenuFlyoutSeparator());
+
+            // List available embedded tracks
+            var playbackItem = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
+            if (playbackItem != null)
+            {
+                var tracks = playbackItem.TimedMetadataTracks;
+                if (tracks.Count > 0)
+                {
+                    for (int i = 0; i < tracks.Count; i++)
+                    {
+                        var track = tracks[i];
+                        if (track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Subtitle || 
+                            track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.ImageSubtitle)
+                        {
+                            var trackIndex = i;
+                            var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
+                            var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {trackIndex + 1}" : track.Label;
+                            var mode = tracks.GetPresentationMode((uint)trackIndex);
+                            
+                            var trackItem = new ToggleMenuFlyoutItem 
+                            { 
+                                Text = $"*Text - {lang} ({label})",
+                                IsChecked = mode == Windows.Media.Playback.TimedMetadataTrackPresentationMode.PlatformPresented
+                            };
+                            trackItem.Click += (s, a) =>
+                            {
+                                // Disable previous selected tracks first
+                                for (int j = 0; j < tracks.Count; j++)
+                                {
+                                    tracks.SetPresentationMode((uint)j, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Disabled);
+                                }
+                                // Enable this track
+                                tracks.SetPresentationMode((uint)trackIndex, Windows.Media.Playback.TimedMetadataTrackPresentationMode.PlatformPresented);
+                                ShowOsd($"Subtitles: {lang}");
+                            };
+                            itemsList.Add(trackItem);
+                        }
+                    }
+                }
+                else
+                {
+                    var emptyText = new MenuFlyoutItem { Text = "No Subtitles Detected", IsEnabled = false };
+                    itemsList.Add(emptyText);
+                }
+            }
+            else
+            {
+                var emptyText = new MenuFlyoutItem { Text = "No Media Loaded", IsEnabled = false };
+                itemsList.Add(emptyText);
+            }
+        }
+
+        private void PopulateAudioMenuHelper(System.Collections.Generic.IList<MenuFlyoutItemBase> itemsList)
+        {
+            // Next Track
+            var nextAudio = new MenuFlyoutItem { Text = "Cycle Audio Track" };
+            nextAudio.Click += CycleAudio_Click;
+            itemsList.Add(nextAudio);
+
+            itemsList.Add(new MenuFlyoutSeparator());
+
+            // List available audio tracks
+            var playbackItem = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
+            if (playbackItem != null)
+            {
+                var tracks = playbackItem.AudioTracks;
+                if (tracks.Count > 0)
+                {
+                    int activeIndex = tracks.SelectedIndex;
+                    for (int i = 0; i < tracks.Count; i++)
+                    {
+                        var track = tracks[i];
+                        var trackIndex = i;
+                        var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
+                        var label = string.IsNullOrWhiteSpace(track.Label) ? $"Audio {trackIndex + 1}" : track.Label;
+                        
+                        var trackItem = new ToggleMenuFlyoutItem 
+                        { 
+                            Text = $"{lang} ({label})",
+                            IsChecked = trackIndex == activeIndex
+                        };
+                        trackItem.Click += (s, a) =>
+                        {
+                            tracks.SelectedIndex = trackIndex;
+                            ShowOsd($"Audio: {lang}");
+                        };
+                        itemsList.Add(trackItem);
+                    }
+                }
+                else
+                {
+                    var emptyText = new MenuFlyoutItem { Text = "No Audio Streams Detected", IsEnabled = false };
+                    itemsList.Add(emptyText);
+                }
+            }
+            else
+            {
+                var emptyText = new MenuFlyoutItem { Text = "No Media Loaded", IsEnabled = false };
+                itemsList.Add(emptyText);
+            }
+        }
+
         private void CycleSubtitle_Click(object sender, RoutedEventArgs e)
         {
             _playbackService?.CycleSubtitleTrack();
         }
 
-        private void DelayMinus_Click(object sender, RoutedEventArgs e)
-        {
-            _currentSubtitleDelay -= 0.5;
-            _playbackService?.SetSubtitleDelay(_currentSubtitleDelay);
-            if (DelayText != null) DelayText.Text = $"{_currentSubtitleDelay:F1}s";
-        }
-
-        private void DelayPlus_Click(object sender, RoutedEventArgs e)
-        {
-            _currentSubtitleDelay += 0.5;
-            _playbackService?.SetSubtitleDelay(_currentSubtitleDelay);
-            if (DelayText != null) DelayText.Text = $"{_currentSubtitleDelay:F1}s";
-        }
-
-        // --- Audio System ---
-        private double _currentAudioDelay = 0.0;
-
         private void CycleAudio_Click(object sender, RoutedEventArgs e)
         {
             _playbackService?.CycleAudioTrack();
-        }
-
-        private void AudioDelayMinus_Click(object sender, RoutedEventArgs e)
-        {
-            _currentAudioDelay -= 0.5;
-            _playbackService?.SetAudioDelay(_currentAudioDelay);
-            if (AudioDelayText != null) AudioDelayText.Text = $"{_currentAudioDelay:F1}s";
-        }
-
-        private void AudioDelayPlus_Click(object sender, RoutedEventArgs e)
-        {
-            _currentAudioDelay += 0.5;
-            _playbackService?.SetAudioDelay(_currentAudioDelay);
-            if (AudioDelayText != null) AudioDelayText.Text = $"{_currentAudioDelay:F1}s";
         }
 
         private void VolumeSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

@@ -18,6 +18,11 @@
     </Page.Resources>
 
     <Grid PointerWheelChanged="Grid_PointerWheelChanged">
+        <Grid.ContextFlyout>
+            <MenuFlyout x:Name="PlayerContextMenu">
+                <!-- Populated dynamically in code-behind to match PotPlayer context menu -->
+            </MenuFlyout>
+        </Grid.ContextFlyout>
         <Grid.ColumnDefinitions>
             <!-- Video Area -->
             <ColumnDefinition Width="*" />
@@ -83,46 +88,16 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="&#xE194;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="White">
                         <Button.Flyout>
-                            <Flyout>
-                                <StackPanel Spacing="12" Width="240">
-                                    <TextBlock Text="Subtitles" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="Bold"/>
-                                    <ToggleSwitch x:Name="SubtitleToggle" Header="Enable Subtitles" IsOn="True" Toggled="SubtitleToggle_Toggled"/>
-                                    <Button Content="Load External Subtitle..." HorizontalAlignment="Stretch" Click="LoadSubtitle_Click"/>
-                                    <Button Content="Next Subtitle Track" HorizontalAlignment="Stretch" Click="CycleSubtitle_Click"/>
-                                    <TextBlock Text="Subtitle Delay" Margin="0,8,0,0" Style="{StaticResource NevCaptionTextBlockStyle}"/>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="-0.5s" HorizontalAlignment="Stretch" Click="DelayMinus_Click"/>
-                                        <TextBlock Grid.Column="1" x:Name="DelayText" Text="0.0s" VerticalAlignment="Center" Margin="12,0"/>
-                                        <Button Grid.Column="2" Content="+0.5s" HorizontalAlignment="Stretch" Click="DelayPlus_Click"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Flyout>
+                            <MenuFlyout x:Name="SubtitleMenuFlyout">
+                                <!-- Populated dynamically in code-behind -->
+                            </MenuFlyout>
                         </Button.Flyout>
                     </Button>
                     <Button Content="&#xE158;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="White">
                         <Button.Flyout>
-                            <Flyout>
-                                <StackPanel Spacing="12" Width="240">
-                                    <TextBlock Text="Audio" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="Bold"/>
-                                    <Button Content="Next Audio Track" HorizontalAlignment="Stretch" Click="CycleAudio_Click"/>
-                                    <TextBlock Text="Audio Delay" Margin="0,8,0,0" Style="{StaticResource NevCaptionTextBlockStyle}"/>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="-0.5s" HorizontalAlignment="Stretch" Click="AudioDelayMinus_Click"/>
-                                        <TextBlock Grid.Column="1" x:Name="AudioDelayText" Text="0.0s" VerticalAlignment="Center" Margin="12,0"/>
-                                        <Button Grid.Column="2" Content="+0.5s" HorizontalAlignment="Stretch" Click="AudioDelayPlus_Click"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Flyout>
+                            <MenuFlyout x:Name="AudioMenuFlyout">
+                                <!-- Populated dynamically in code-behind -->
+                            </MenuFlyout>
                         </Button.Flyout>
                     </Button>
                     <Slider x:Name="VolumeSlider" Width="100" Value="100" Maximum="100" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged" />
