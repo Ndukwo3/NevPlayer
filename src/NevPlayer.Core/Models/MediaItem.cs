@@ -1,0 +1,38 @@
+using System;
+
+namespace NevPlayer.Core.Models
+{
+    public class MediaItem
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public TimeSpan Duration { get; set; } = TimeSpan.Zero;
+        
+        // Metadata fields
+        public string Artist { get; set; } = string.Empty;
+        public string Album { get; set; } = string.Empty;
+        public string Resolution { get; set; } = string.Empty;
+        public string CodecInfo { get; set; } = string.Empty;
+        public string AlbumArtPath { get; set; } = string.Empty;
+        
+        // New Metadata fields
+        public uint Bitrate { get; set; }
+        public ulong FileSize { get; set; }
+        public string Genre { get; set; } = string.Empty;
+        public uint Year { get; set; }
+
+        // Helper properties for UI binding
+        public string FormattedDuration => Duration.ToString(Duration.Hours > 0 ? @"hh\:mm\:ss" : @"mm\:ss");
+        public string DisplayMetadata 
+        {
+            get 
+            {
+                var parts = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrEmpty(Resolution)) parts.Add(Resolution);
+                if (!string.IsNullOrEmpty(FormattedDuration) && Duration.TotalSeconds > 0) parts.Add(FormattedDuration);
+                return string.Join(" • ", parts);
+            }
+        }
+    }
+}

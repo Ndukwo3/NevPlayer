@@ -1,0 +1,42 @@
+<Page
+    x:Class="NevPlayer.App.Views.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:NevPlayer.App.Views"
+    mc:Ignorable="d"
+    Background="Transparent">
+
+    <Grid>
+        <!-- Custom Title Bar to prevent drag region from overlapping the hamburger menu -->
+        <Grid x:Name="AppTitleBar" Height="32" VerticalAlignment="Top" Background="Transparent" Canvas.ZIndex="1" Margin="48,0,0,0">
+            <TextBlock Text="NevPlayer" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12" Opacity="0.5" />
+        </Grid>
+        
+        <!-- The main navigation pane for the application -->
+        <NavigationView x:Name="NavView" 
+                        PaneDisplayMode="LeftCompact"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="True"
+                        SelectionChanged="NavView_SelectionChanged"
+                        Background="#0F0F0F">
+            <NavigationView.AutoSuggestBox>
+                <AutoSuggestBox x:Name="SearchBox" QueryIcon="Find" PlaceholderText="Search..." 
+                                TextChanged="SearchBox_TextChanged" QuerySubmitted="SearchBox_QuerySubmitted"/>
+            </NavigationView.AutoSuggestBox>
+            
+            <NavigationView.MenuItems>
+                <NavigationViewItem Tag="Home" Content="Home" Icon="Home" />
+                <NavigationViewItem Tag="Music" Content="Music" Icon="Audio" />
+                <NavigationViewItem Tag="Videos" Content="Videos" Icon="Video" />
+                <NavigationViewItem Tag="Playlists" Content="Playlists" Icon="List" />
+                <NavigationViewItem Tag="Favorites" Content="Favorites" Icon="Favorite" />
+                <NavigationViewItem Tag="History" Content="Recently Played" Icon="Clock" />
+            </NavigationView.MenuItems>
+            
+            <!-- Frame for navigating to different pages within the app -->
+            <Frame x:Name="ContentFrame" x:FieldModifier="public" />
+        </NavigationView>
+    </Grid>
+</Page>

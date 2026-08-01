@@ -1,0 +1,27 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Global Corner Radius -->
+    <CornerRadius x:Key="NevControlCornerRadius">6</CornerRadius>
+    <CornerRadius x:Key="NevCardCornerRadius">12</CornerRadius>
+
+    <!-- Custom Button Style -->
+    <Style x:Key="NevPrimaryButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource NevAccentBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource NevTextPrimaryBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource NevControlCornerRadius}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="NevSecondaryButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource NevSurfaceElevatedBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource NevTextPrimaryBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource NevControlCornerRadius}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="16,8" />
+    </Style>
+
+</ResourceDictionary>

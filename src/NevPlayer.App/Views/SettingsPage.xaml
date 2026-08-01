@@ -1,0 +1,80 @@
+<Page
+    x:Class="NevPlayer.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{StaticResource NevBackgroundBrush}">
+
+    <ScrollViewer>
+        <StackPanel Padding="40" Spacing="40">
+            <!-- Header -->
+            <TextBlock Text="Settings" Style="{StaticResource NevTitleTextBlockStyle}" FontSize="42" FontWeight="Bold" />
+
+            <!-- Appearance Section -->
+            <StackPanel Spacing="16">
+                <TextBlock Text="APPEARANCE" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#666666" />
+                <Border Background="{StaticResource NevSurfaceBrush}" CornerRadius="{StaticResource NevCardCornerRadius}" Padding="24">
+                    <StackPanel Spacing="20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Dark Mode" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="SemiBold" />
+                                <TextBlock Text="Use dark theme throughout the app" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#999999" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="DarkModeToggle" Grid.Column="1" IsOn="True" VerticalAlignment="Center" Toggled="DarkModeToggle_Toggled" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Playback Section -->
+            <StackPanel Spacing="16">
+                <TextBlock Text="PLAYBACK" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#666666" />
+                <Border Background="{StaticResource NevSurfaceBrush}" CornerRadius="{StaticResource NevCardCornerRadius}" Padding="24">
+                    <StackPanel Spacing="20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Resume Playback" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="SemiBold" />
+                                <TextBlock Text="Automatically resume from last position" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#999999" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="ResumeToggle" Grid.Column="1" IsOn="True" VerticalAlignment="Center" Toggled="ResumeToggle_Toggled" />
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Hardware Acceleration" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="SemiBold" />
+                                <TextBlock Text="Use GPU for video decoding" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#999999" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="HardwareAccelToggle" Grid.Column="1" IsOn="True" VerticalAlignment="Center" Toggled="HardwareAccelToggle_Toggled" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- About Section -->
+            <StackPanel Spacing="16">
+                <TextBlock Text="ABOUT" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#666666" />
+                <Border Background="{StaticResource NevSurfaceBrush}" CornerRadius="{StaticResource NevCardCornerRadius}" Padding="24">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="NevPlayer" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="Bold" FontSize="18" />
+                        <TextBlock Text="Version 1.0.0" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#999999" />
+                        <TextBlock Text="A modern media player built with WinUI 3." Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#666666" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,25 @@
+## Ignore Visual Studio & Rider temporary files
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Ignore build output directories
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+
+## Ignore published output
+publish/
+
+## Ignore testing artifacts
+TestResults/
+
+## Ignore local config / secrets / packages
+*.userprefs
+.vscode/
+.gemini/
+.DS_Store

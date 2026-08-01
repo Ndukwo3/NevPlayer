@@ -1,0 +1,54 @@
+<Page
+    x:Class="NevPlayer.App.Views.FavoritesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:NevPlayer.Core.Models"
+    mc:Ignorable="d"
+    Background="Transparent">
+
+    <Grid Padding="32,48,32,32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Text="Favorites" Style="{StaticResource NevTitleTextBlockStyle}" Grid.Row="0" Margin="0,0,0,24" />
+
+        <TextBlock x:Name="EmptyStateText" Text="You haven't favorited any media yet." 
+                   Style="{StaticResource NevBodyTextBlockStyle}" Foreground="Gray"
+                   VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Row="1" Visibility="Collapsed" />
+
+        <!-- Favorites Grid -->
+        <GridView x:Name="FavoritesGrid" Grid.Row="1" IsItemClickEnabled="True" ItemClick="FavoritesGrid_ItemClick">
+            <GridView.ItemTemplate>
+                <DataTemplate x:DataType="models:MediaItem">
+                    <Grid Width="200" Height="280" Margin="0,0,16,16" Background="#1A1A1A" CornerRadius="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="200"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Image Source="{x:Bind AlbumArtPath}" Stretch="UniformToFill" Grid.Row="0" />
+                        
+                        <!-- Fallback icon if no artwork -->
+                        <FontIcon Glyph="&#xE114;" FontSize="48" Foreground="#333333" Grid.Row="0" 
+                                  Visibility="{x:Bind AlbumArtPath, Converter={StaticResource StringToVisibilityConverter}}" />
+                        
+                        <!-- Play Icon Overlay (hover effect placeholder) -->
+                        <Grid Grid.Row="0" Background="#80000000" Opacity="0">
+                            <FontIcon Glyph="&#xE102;" FontSize="48" Foreground="White"/>
+                        </Grid>
+                        
+                        <StackPanel Grid.Row="1" Padding="12">
+                            <TextBlock Text="{x:Bind Title}" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{x:Bind Artist}" Style="{StaticResource NevCaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </GridView.ItemTemplate>
+        </GridView>
+    </Grid>
+</Page>
