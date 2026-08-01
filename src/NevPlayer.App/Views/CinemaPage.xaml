@@ -6,7 +6,12 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     NavigationCacheMode="Required"
-    Background="{StaticResource NevBackgroundBrush}">
+    Background="{StaticResource NevBackgroundBrush}"
+    KeyboardAcceleratorPlacementMode="Hidden">
+
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Key="Space" Invoked="Spacebar_Invoked" />
+    </Page.KeyboardAccelerators>
 
     <Page.Resources>
         <Storyboard x:Name="OsdFadeInStoryboard">
@@ -17,7 +22,7 @@
         </Storyboard>
     </Page.Resources>
 
-    <Grid PointerWheelChanged="Grid_PointerWheelChanged">
+    <Grid PointerWheelChanged="Grid_PointerWheelChanged" DoubleTapped="VideoSurface_DoubleTapped">
         <Grid.ContextFlyout>
             <MenuFlyout x:Name="PlayerContextMenu">
                 <!-- Populated dynamically in code-behind to match PotPlayer context menu -->
@@ -32,6 +37,13 @@
 
         <!-- Native Windows MediaPlayer Element -->
         <MediaPlayerElement Grid.Column="0" x:Name="VideoSurface" AreTransportControlsEnabled="False" Stretch="Uniform" />
+
+        <!-- Custom Subtitle Overlay TextBlock -->
+        <Grid Grid.Column="0" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,140" IsHitTestVisible="False">
+            <Border x:Name="SubtitleBackgroundBorder" Background="#B3000000" CornerRadius="4" Padding="12,6" Visibility="Collapsed">
+                <TextBlock x:Name="SubtitleTextBlock" Text="" FontSize="24" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" />
+            </Border>
+        </Grid>
 
         <!-- On-Screen Display (OSD) Overlay -->
         <Grid x:Name="OsdOverlay" Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#99000000" CornerRadius="12" Padding="24,12" Opacity="0" IsHitTestVisible="False">
@@ -100,7 +112,7 @@
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
-                    <Slider x:Name="VolumeSlider" Width="100" Value="100" Maximum="100" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged" />
+                    <Slider x:Name="VolumeSlider" Width="100" Value="100" Maximum="200" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged" />
                     <Button Content="&#xE713;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="White">
                         <Button.Flyout>
                             <Flyout>

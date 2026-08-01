@@ -165,6 +165,7 @@ namespace NevPlayer.App.Services
 
         public void SetVolume(double volume)
         {
+            // Clamp natively to 1.0 for now, MPV implementation will support true amplification up to 2.0
             _player.Volume = Math.Clamp(volume / 100.0, 0.0, 1.0);
         }
 

@@ -13,6 +13,7 @@ namespace NevPlayer.App.Views
 
         // Held so we can subscribe/unsubscribe from native MediaPlayer events cleanly.
         private Windows.Media.Playback.MediaPlayer? _nativePlayer;
+        private Windows.Media.Core.TimedMetadataTrack? _activeSubtitleTrack;
 
         public CinemaPage()
         {
@@ -43,9 +44,6 @@ namespace NevPlayer.App.Views
             PlayerContextMenu.Opening += PlayerContextMenu_Opening;
             SubtitleMenuFlyout.Opening += SubtitleMenuFlyout_Opening;
             AudioMenuFlyout.Opening += AudioMenuFlyout_Opening;
-
-            // Handle spacebar globally before child controls capture it
-            PreviewKeyDown += CinemaPage_PreviewKeyDown;
         }
 
         private void OsdTimer_Tick(object? sender, object e)
@@ -54,23 +52,20 @@ namespace NevPlayer.App.Views
             OsdFadeOutStoryboard.Begin();
         }
 
-        private void CinemaPage_PreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        private void Spacebar_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
         {
-            if (e.Key == Windows.System.VirtualKey.Space)
+            args.Handled = true; // Prevents the keypress from triggering focused controls
+            
+            // Toggle play/pause
+            if (_playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing)
             {
-                e.Handled = true; // Stop focus bubble so it doesn't click other focused buttons
-                
-                // Toggle play/pause
-                if (_playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing)
-                {
-                    _playbackService.Pause();
-                    ShowOsd("Pause");
-                }
-                else
-                {
-                    _playbackService.Play();
-                    ShowOsd("Play");
-                }
+                _playbackService.Pause();
+                ShowOsd("Pause");
+            }
+            else
+            {
+                _playbackService.Play();
+                ShowOsd("Play");
             }
         }
 
@@ -140,6 +135,13 @@ namespace NevPlayer.App.Views
             {
                 wmp.PlaybackFailed -= Engine_PlaybackFailed;
                 wmp.MediaEnded     -= Engine_MediaEnded;
+            }
+
+            if (_activeSubtitleTrack != null)
+            {
+                _activeSubtitleTrack.CueEntered -= ActiveTrack_CueEntered;
+                _activeSubtitleTrack.CueExited -= ActiveTrack_CueExited;
+                _activeSubtitleTrack = null;
             }
         }
 
@@ -406,13 +408,36 @@ namespace NevPlayer.App.Views
         private void PopulateSubtitleMenuHelper(System.Collections.Generic.IList<MenuFlyoutItemBase> itemsList)
         {
             // Show/Hide Subtitles Toggle
-            var isSubVisible = true; // Default to true
+            var isSubVisible = _activeSubtitleTrack != null;
             var showHideToggle = new ToggleMenuFlyoutItem { Text = "Show/Hide Subtitles", IsChecked = isSubVisible };
             showHideToggle.Click += (s, a) =>
             {
-                isSubVisible = !isSubVisible;
-                _playbackService.SetSubtitleVisibility(isSubVisible);
-                ShowOsd(isSubVisible ? "Subtitles: Enabled" : "Subtitles: Disabled");
+                if (showHideToggle.IsChecked)
+                {
+                    // Find first subtitle track and activate
+                    var playbackItem = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
+                    if (playbackItem != null && playbackItem.TimedMetadataTracks.Count > 0)
+                    {
+                        var tracks = playbackItem.TimedMetadataTracks;
+                        for (int i = 0; i < tracks.Count; i++)
+                        {
+                            var track = tracks[i];
+                            if (track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Subtitle || 
+                                track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.ImageSubtitle)
+                            {
+                                tracks.SetPresentationMode((uint)i, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Hidden);
+                                ActivateSubtitleTrack(track);
+                                break;
+                            }
+                        }
+                    }
+                    ShowOsd("Subtitles: Enabled");
+                }
+                else
+                {
+                    ActivateSubtitleTrack(null!);
+                    ShowOsd("Subtitles: Disabled");
+                }
             };
             itemsList.Add(showHideToggle);
 
@@ -428,10 +453,10 @@ namespace NevPlayer.App.Views
             itemsList.Add(new MenuFlyoutSeparator());
 
             // List available embedded tracks
-            var playbackItem = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
-            if (playbackItem != null)
+            var playbackItemSource = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
+            if (playbackItemSource != null)
             {
-                var tracks = playbackItem.TimedMetadataTracks;
+                var tracks = playbackItemSource.TimedMetadataTracks;
                 if (tracks.Count > 0)
                 {
                     for (int i = 0; i < tracks.Count; i++)
@@ -443,12 +468,11 @@ namespace NevPlayer.App.Views
                             var trackIndex = i;
                             var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
                             var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {trackIndex + 1}" : track.Label;
-                            var mode = tracks.GetPresentationMode((uint)trackIndex);
                             
                             var trackItem = new ToggleMenuFlyoutItem 
                             { 
                                 Text = $"*Text - {lang} ({label})",
-                                IsChecked = mode == Windows.Media.Playback.TimedMetadataTrackPresentationMode.PlatformPresented
+                                IsChecked = track == _activeSubtitleTrack
                             };
                             trackItem.Click += (s, a) =>
                             {
@@ -457,8 +481,9 @@ namespace NevPlayer.App.Views
                                 {
                                     tracks.SetPresentationMode((uint)j, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Disabled);
                                 }
-                                // Enable this track
-                                tracks.SetPresentationMode((uint)trackIndex, Windows.Media.Playback.TimedMetadataTrackPresentationMode.PlatformPresented);
+                                // Enable this track as Hidden so it raises events
+                                tracks.SetPresentationMode((uint)trackIndex, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Hidden);
+                                ActivateSubtitleTrack(track);
                                 ShowOsd($"Subtitles: {lang}");
                             };
                             itemsList.Add(trackItem);
@@ -546,7 +571,14 @@ namespace NevPlayer.App.Views
                 // Avoid showing OSD on initial page load if VolumeSlider initializes its value
                 if (IsLoaded)
                 {
-                    ShowOsd($"Volume: {e.NewValue:0}%");
+                    if (e.NewValue > 100)
+                    {
+                        ShowOsd($"Volume: {e.NewValue:0}% (Amplified)");
+                    }
+                    else
+                    {
+                        ShowOsd($"Volume: {e.NewValue:0}%");
+                    }
                 }
             }
         }
@@ -561,7 +593,7 @@ namespace NevPlayer.App.Views
             if (VolumeSlider != null)
             {
                 var newVolume = VolumeSlider.Value + volumeChange;
-                newVolume = Math.Max(0, Math.Min(100, newVolume));
+                newVolume = Math.Max(0, Math.Min(200, newVolume));
                 VolumeSlider.Value = newVolume;
             }
             
@@ -709,9 +741,10 @@ namespace NevPlayer.App.Views
             sizeSlider.ValueChanged += (s, e) =>
             {
                 sizeHeader.Text = $"Subtitle Font Size: {e.NewValue:0}px";
-                // System-presented subtitles font size changes can be styled in Windows accessibility settings, 
-                // but this represents the custom subtitle styling controls.
-                System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Subtitle Font Size set to: {e.NewValue}px");
+                if (SubtitleTextBlock != null)
+                {
+                    SubtitleTextBlock.FontSize = e.NewValue;
+                }
             };
 
             stackPanel.Children.Add(delayHeader);
@@ -728,6 +761,102 @@ namespace NevPlayer.App.Views
             };
 
             await dialog.ShowAsync();
+        }
+
+        private void ActivateSubtitleTrack(Windows.Media.Core.TimedMetadataTrack track)
+        {
+            if (_activeSubtitleTrack != null)
+            {
+                _activeSubtitleTrack.CueEntered -= ActiveTrack_CueEntered;
+                _activeSubtitleTrack.CueExited -= ActiveTrack_CueExited;
+            }
+
+            _activeSubtitleTrack = track;
+
+            if (_activeSubtitleTrack != null)
+            {
+                _activeSubtitleTrack.CueEntered += ActiveTrack_CueEntered;
+                _activeSubtitleTrack.CueExited += ActiveTrack_CueExited;
+                
+                // Render already active cue if present
+                if (_activeSubtitleTrack.ActiveCues.Count > 0 && _activeSubtitleTrack.ActiveCues[0] is Windows.Media.Core.TimedTextCue cue)
+                {
+                    RenderSubtitleCue(cue);
+                }
+            }
+            else
+            {
+                if (SubtitleBackgroundBorder != null) SubtitleBackgroundBorder.Visibility = Visibility.Collapsed;
+                if (SubtitleTextBlock != null) SubtitleTextBlock.Text = "";
+            }
+        }
+
+        private void ActiveTrack_CueEntered(Windows.Media.Core.TimedMetadataTrack sender, Windows.Media.Core.MediaCueEventArgs args)
+        {
+            if (args.Cue is Windows.Media.Core.TimedTextCue cue)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    RenderSubtitleCue(cue);
+                });
+            }
+        }
+
+        private void ActiveTrack_CueExited(Windows.Media.Core.TimedMetadataTrack sender, Windows.Media.Core.MediaCueEventArgs args)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (SubtitleBackgroundBorder != null) SubtitleBackgroundBorder.Visibility = Visibility.Collapsed;
+                if (SubtitleTextBlock != null) SubtitleTextBlock.Text = "";
+            });
+        }
+
+        private void RenderSubtitleCue(Windows.Media.Core.TimedTextCue cue)
+        {
+            if (SubtitleTextBlock == null || SubtitleBackgroundBorder == null) return;
+
+            var lines = new System.Collections.Generic.List<string>();
+            foreach (var line in cue.Lines)
+            {
+                if (!string.IsNullOrEmpty(line.Text))
+                {
+                    lines.Add(line.Text);
+                }
+            }
+
+            if (lines.Count > 0)
+            {
+                SubtitleTextBlock.Text = string.Join(Environment.NewLine, lines);
+                SubtitleBackgroundBorder.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                SubtitleTextBlock.Text = "";
+                SubtitleBackgroundBorder.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void VideoSurface_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+        {
+            var app = Application.Current as App;
+            var win = app?.MainWindow;
+            if (win != null)
+            {
+                var presenter = win.AppWindow.Presenter;
+                var bar = GetAppTitleBar();
+                if (presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
+                {
+                    win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
+                    if (bar != null) bar.Visibility = Visibility.Visible;
+                    ShowOsd("Exit Fullscreen");
+                }
+                else
+                {
+                    win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
+                    if (bar != null) bar.Visibility = Visibility.Collapsed;
+                    ShowOsd("Fullscreen");
+                }
+            }
         }
     }
 }
