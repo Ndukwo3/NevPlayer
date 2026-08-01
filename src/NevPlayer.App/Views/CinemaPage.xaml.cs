@@ -43,12 +43,35 @@ namespace NevPlayer.App.Views
             PlayerContextMenu.Opening += PlayerContextMenu_Opening;
             SubtitleMenuFlyout.Opening += SubtitleMenuFlyout_Opening;
             AudioMenuFlyout.Opening += AudioMenuFlyout_Opening;
+
+            // Handle spacebar globally before child controls capture it
+            PreviewKeyDown += CinemaPage_PreviewKeyDown;
         }
 
         private void OsdTimer_Tick(object? sender, object e)
         {
             _osdTimer.Stop();
             OsdFadeOutStoryboard.Begin();
+        }
+
+        private void CinemaPage_PreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Space)
+            {
+                e.Handled = true; // Stop focus bubble so it doesn't click other focused buttons
+                
+                // Toggle play/pause
+                if (_playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing)
+                {
+                    _playbackService.Pause();
+                    ShowOsd("Pause");
+                }
+                else
+                {
+                    _playbackService.Play();
+                    ShowOsd("Play");
+                }
+            }
         }
 
         private void ShowOsd(string text)
@@ -299,10 +322,10 @@ namespace NevPlayer.App.Views
             var menu = PlayerContextMenu;
             menu.Items.Clear();
 
-            // Open File option
-            var openItem = new MenuFlyoutItem { Text = "Open File...", Icon = new SymbolIcon(Symbol.OpenFile) };
-            openItem.Click += AddPlaylist_Click;
-            menu.Items.Add(openItem);
+            // Open Subtitle option
+            var openSubItem = new MenuFlyoutItem { Text = "Open Subtitle...", Icon = new SymbolIcon(Symbol.Document) };
+            openSubItem.Click += LoadSubtitle_Click;
+            menu.Items.Add(openSubItem);
 
             menu.Items.Add(new MenuFlyoutSeparator());
 
@@ -397,6 +420,10 @@ namespace NevPlayer.App.Views
             var loadExtItem = new MenuFlyoutItem { Text = "Load External Subtitle..." };
             loadExtItem.Click += LoadSubtitle_Click;
             itemsList.Add(loadExtItem);
+
+            var configSubItem = new MenuFlyoutItem { Text = "Configure Subtitles..." };
+            configSubItem.Click += (s, a) => ShowSubtitleConfigDialog();
+            itemsList.Add(configSubItem);
 
             itemsList.Add(new MenuFlyoutSeparator());
 
@@ -645,6 +672,62 @@ namespace NevPlayer.App.Views
                     ShowOsd("Aspect: Stretch");
                 }
             }
+        }
+
+        private double _dialogSubtitleDelay = 0.0;
+        private async void ShowSubtitleConfigDialog()
+        {
+            var stackPanel = new StackPanel { Spacing = 16, Width = 320 };
+
+            // Subtitle Delay Slider
+            var delayHeader = new TextBlock { Text = $"Subtitle Delay: {_dialogSubtitleDelay:F1}s", Style = (Style)Application.Current.Resources["NevBodyTextBlockStyle"], FontWeight = Microsoft.UI.Text.FontWeights.Bold };
+            var delaySlider = new Slider 
+            { 
+                Minimum = -10, 
+                Maximum = 10, 
+                StepFrequency = 0.5, 
+                Value = _dialogSubtitleDelay, 
+                HorizontalAlignment = HorizontalAlignment.Stretch 
+            };
+            delaySlider.ValueChanged += (s, e) =>
+            {
+                _dialogSubtitleDelay = e.NewValue;
+                delayHeader.Text = $"Subtitle Delay: {_dialogSubtitleDelay:F1}s";
+                _playbackService.SetSubtitleDelay(_dialogSubtitleDelay);
+            };
+
+            // Font Size Slider (Custom UI config simulation)
+            var sizeHeader = new TextBlock { Text = "Subtitle Font Size: 24px", Style = (Style)Application.Current.Resources["NevBodyTextBlockStyle"], FontWeight = Microsoft.UI.Text.FontWeights.Bold };
+            var sizeSlider = new Slider 
+            { 
+                Minimum = 12, 
+                Maximum = 48, 
+                StepFrequency = 1, 
+                Value = 24, 
+                HorizontalAlignment = HorizontalAlignment.Stretch 
+            };
+            sizeSlider.ValueChanged += (s, e) =>
+            {
+                sizeHeader.Text = $"Subtitle Font Size: {e.NewValue:0}px";
+                // System-presented subtitles font size changes can be styled in Windows accessibility settings, 
+                // but this represents the custom subtitle styling controls.
+                System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Subtitle Font Size set to: {e.NewValue}px");
+            };
+
+            stackPanel.Children.Add(delayHeader);
+            stackPanel.Children.Add(delaySlider);
+            stackPanel.Children.Add(sizeHeader);
+            stackPanel.Children.Add(sizeSlider);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Subtitle Settings",
+                Content = stackPanel,
+                CloseButtonText = "Done",
+                XamlRoot = this.XamlRoot
+            };
+
+            await dialog.ShowAsync();
         }
     }
 }

@@ -12,6 +12,7 @@ namespace NevPlayer.App.Services
     {
         private readonly MediaPlayer _player;
         private MediaPlaybackItem? _currentPlaybackItem;
+        private double _subtitleDelayOffset = 0.0;
 
         public object? NativePlayer => _player;
 
@@ -232,17 +233,36 @@ namespace NevPlayer.App.Services
         {
             if (_currentPlaybackItem == null) return;
 
+            // Calculate the change in delay (delta) since the last call
+            double delta = delayInSeconds - _subtitleDelayOffset;
+            if (delta == 0) return;
+
+            _subtitleDelayOffset = delayInSeconds;
+
             var tracks = _currentPlaybackItem.TimedMetadataTracks;
             for (int i = 0; i < tracks.Count; i++)
             {
                 var track = tracks[i];
                 if (track.TimedMetadataKind == TimedMetadataKind.Subtitle || track.TimedMetadataKind == TimedMetadataKind.ImageSubtitle)
                 {
-                    // Delay shifts cues forward or backward in time
-                    // Windows Media Foundation does not support timing offsets directly,
-                    // but we can adjust the playback session time or track offset in some contexts.
-                    // For MediaPlayer, we write delay settings here. In future, custom cue offsets can be calculated.
-                    System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Subtitle delay offset set to: {delayInSeconds}s");
+                    // Only apply offset shifts to active TimedMetadataTracks
+                    var mode = tracks.GetPresentationMode((uint)i);
+                    if (mode == TimedMetadataTrackPresentationMode.PlatformPresented)
+                    {
+                        var timeDelta = TimeSpan.FromSeconds(delta);
+                        foreach (var cue in track.Cues)
+                        {
+                            try
+                            {
+                                cue.StartTime += timeDelta;
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Failed to shift cue: {ex.Message}");
+                            }
+                        }
+                        System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Shifted subtitle cues by {delta}s. Total delay: {_subtitleDelayOffset}s");
+                    }
                 }
             }
         }
