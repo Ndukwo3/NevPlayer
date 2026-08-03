@@ -33,6 +33,24 @@ namespace NevPlayer.App.Views
             AudioMenuFlyout.Opening += AudioMenuFlyout_Opening;
         }
 
+        /// <summary>
+        /// Connect the media player to the video surface as EARLY as possible —
+        /// before the visual tree even finishes rendering. This is the primary fix
+        /// for the black video screen bug in WinUI 3 MediaPlayerElement.
+        /// </summary>
+        protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            if (_playbackService.Engine.NativePlayer is Windows.Media.Playback.MediaPlayer nativePlayer)
+            {
+                _nativePlayer = nativePlayer;
+                // Clear any old surface first, then bind fresh
+                VideoSurface?.SetMediaPlayer(null);
+                VideoSurface?.SetMediaPlayer(nativePlayer);
+                System.Diagnostics.Debug.WriteLine(\"[NevPlayer Diagnostics] OnNavigatedTo: VideoSurface connected.\");
+            }
+        }
+
         private void OsdTimer_Tick(object? sender, object e)
         {
             _osdTimer.Stop();
@@ -68,7 +86,6 @@ namespace NevPlayer.App.Views
         private void CinemaPage_Loaded(object? sender, RoutedEventArgs e)
         {
             System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] CinemaPage_Loaded invoked.");
-            System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] VideoSurface Visibility: {VideoSurface?.Visibility}, ActualWidth: {VideoSurface?.ActualWidth}, ActualHeight: {VideoSurface?.ActualHeight}");
 
             // Subscribe to playback events on load
             _playbackService.PositionChanged += PlaybackService_PositionChanged;
@@ -88,28 +105,22 @@ namespace NevPlayer.App.Views
                 System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer found. Connecting to VideoSurface...");
                 _nativePlayer = nativePlayer;
 
-                // Attach the render surface so WinUI knows where to draw the video frames.
-                // IsVideoFrameServerEnabled must be false (default) for MediaPlayerElement to handle rendering.
-                _nativePlayer.IsVideoFrameServerEnabled = false;
+                // Step 1: clear any stale surface binding first
+                VideoSurface?.SetMediaPlayer(null);
+
+                // Step 2: attach the player to the MediaPlayerElement
                 VideoSurface?.SetMediaPlayer(nativePlayer);
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] VideoSurface.SetMediaPlayer(_nativePlayer) executed successfully.");
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] VideoSurface.SetMediaPlayer() executed.");
 
-                // Subscribe to VideoFrameAvailable so we can re-connect the surface if the
-                // player was already running before this page loaded (avoids the black-screen bug).
-                _nativePlayer.VideoFrameAvailable -= NativePlayer_VideoFrameAvailable;
-                _nativePlayer.VideoFrameAvailable += NativePlayer_VideoFrameAvailable;
-
-                if (_nativePlayer.PlaybackSession.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing)
-                {
-                    System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer is already playing. Re-attaching render surface.");
-                    // Detach and re-attach the surface to force the compositor to pick it up.
-                    VideoSurface?.SetMediaPlayer(null);
-                    VideoSurface?.SetMediaPlayer(nativePlayer);
-                }
+                // Step 3: After the page layout fully renders (one frame later), do a
+                // detach + re-attach so the compositor picks up the live video surface.
+                // This is the reliable fix for black video in WinUI 3 when the player
+                // is already playing before the page is navigated to.
+                AttachVideoSurfaceWithDelay(nativePlayer);
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] WARNING: NativePlayer is null or not a Windows.Media.Playback.MediaPlayer!");
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] WARNING: NativePlayer is null!");
             }
             
             if (VolumeSlider != null)
@@ -137,6 +148,27 @@ namespace NevPlayer.App.Views
             UpdateMetadata();
         }
 
+        /// <summary>
+        /// Fires a one-shot 300ms timer that disconnects and reconnects the video surface.
+        /// This forces the WinUI 3 compositor to re-acquire the MediaPlayer render target
+        /// after the page's visual tree has had one full layout pass, resolving the
+        /// black-screen bug that occurs when the player is already streaming on navigation.
+        /// </summary>
+        private void AttachVideoSurfaceWithDelay(Windows.Media.Playback.MediaPlayer player)
+        {
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] Delayed re-attach: clearing surface...");
+                VideoSurface?.SetMediaPlayer(null);
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] Delayed re-attach: binding surface...");
+                VideoSurface?.SetMediaPlayer(player);
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] Delayed re-attach complete.");
+            };
+            timer.Start();
+        }
+
         private void CinemaPage_Unloaded(object? sender, RoutedEventArgs e)
         {
             _playbackService.PositionChanged -= PlaybackService_PositionChanged;
@@ -151,12 +183,6 @@ namespace NevPlayer.App.Views
                 wmp.MediaEnded     -= Engine_MediaEnded;
             }
 
-            // Unsubscribe video frame hook to avoid memory leaks
-            if (_nativePlayer != null)
-            {
-                _nativePlayer.VideoFrameAvailable -= NativePlayer_VideoFrameAvailable;
-            }
-
             if (_activeSubtitleTrack != null)
             {
                 _activeSubtitleTrack.CueEntered -= ActiveTrack_CueEntered;
@@ -165,30 +191,6 @@ namespace NevPlayer.App.Views
             }
 
             StopVisualizerAnimation();
-        }
-
-        private bool _surfaceReconnected = false;
-
-        /// <summary>
-        /// Called on a background thread when the first video frame is decoded.
-        /// We use this single-fire event to guarantee the render surface is reconnected
-        /// on the UI thread — this resolves the black video bug when the player was
-        /// already open before navigating to CinemaPage.
-        /// </summary>
-        private void NativePlayer_VideoFrameAvailable(Windows.Media.Playback.MediaPlayer sender, object args)
-        {
-            if (_surfaceReconnected) return;
-            _surfaceReconnected = true;
-
-            // Unsubscribe immediately — we only need this one-shot fix.
-            sender.VideoFrameAvailable -= NativePlayer_VideoFrameAvailable;
-
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] VideoFrameAvailable: Re-attaching render surface to fix black screen.");
-                VideoSurface?.SetMediaPlayer(null);
-                VideoSurface?.SetMediaPlayer(sender);
-            });
         }
 
         private void PlaybackService_MediaChanged(object? sender, EventArgs e)
