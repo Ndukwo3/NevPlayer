@@ -88,15 +88,23 @@ namespace NevPlayer.App.Views
                 System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer found. Connecting to VideoSurface...");
                 _nativePlayer = nativePlayer;
 
-                // Initial surface connection
+                // Attach the render surface so WinUI knows where to draw the video frames.
+                // IsVideoFrameServerEnabled must be false (default) for MediaPlayerElement to handle rendering.
+                _nativePlayer.IsVideoFrameServerEnabled = false;
                 VideoSurface?.SetMediaPlayer(nativePlayer);
                 System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] VideoSurface.SetMediaPlayer(_nativePlayer) executed successfully.");
 
+                // Subscribe to VideoFrameAvailable so we can re-connect the surface if the
+                // player was already running before this page loaded (avoids the black-screen bug).
+                _nativePlayer.VideoFrameAvailable -= NativePlayer_VideoFrameAvailable;
+                _nativePlayer.VideoFrameAvailable += NativePlayer_VideoFrameAvailable;
+
                 if (_nativePlayer.PlaybackSession.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing)
                 {
-                    System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer is already playing. Initiating Pause/Play kick to force video frame rendering.");
-                    _nativePlayer.Pause();
-                    _nativePlayer.Play();
+                    System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer is already playing. Re-attaching render surface.");
+                    // Detach and re-attach the surface to force the compositor to pick it up.
+                    VideoSurface?.SetMediaPlayer(null);
+                    VideoSurface?.SetMediaPlayer(nativePlayer);
                 }
             }
             else
@@ -143,6 +151,12 @@ namespace NevPlayer.App.Views
                 wmp.MediaEnded     -= Engine_MediaEnded;
             }
 
+            // Unsubscribe video frame hook to avoid memory leaks
+            if (_nativePlayer != null)
+            {
+                _nativePlayer.VideoFrameAvailable -= NativePlayer_VideoFrameAvailable;
+            }
+
             if (_activeSubtitleTrack != null)
             {
                 _activeSubtitleTrack.CueEntered -= ActiveTrack_CueEntered;
@@ -151,6 +165,30 @@ namespace NevPlayer.App.Views
             }
 
             StopVisualizerAnimation();
+        }
+
+        private bool _surfaceReconnected = false;
+
+        /// <summary>
+        /// Called on a background thread when the first video frame is decoded.
+        /// We use this single-fire event to guarantee the render surface is reconnected
+        /// on the UI thread — this resolves the black video bug when the player was
+        /// already open before navigating to CinemaPage.
+        /// </summary>
+        private void NativePlayer_VideoFrameAvailable(Windows.Media.Playback.MediaPlayer sender, object args)
+        {
+            if (_surfaceReconnected) return;
+            _surfaceReconnected = true;
+
+            // Unsubscribe immediately — we only need this one-shot fix.
+            sender.VideoFrameAvailable -= NativePlayer_VideoFrameAvailable;
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] VideoFrameAvailable: Re-attaching render surface to fix black screen.");
+                VideoSurface?.SetMediaPlayer(null);
+                VideoSurface?.SetMediaPlayer(sender);
+            });
         }
 
         private void PlaybackService_MediaChanged(object? sender, EventArgs e)
@@ -306,7 +344,8 @@ namespace NevPlayer.App.Views
                 if (TimelineSlider != null)
                 {
                     TimelineSlider.Maximum = duration.TotalSeconds;
-                    TotalTimeText.Text = duration.ToString(@"hh\:ss");
+                    // Fixed: was hh:\ss (missing minutes). Correct format: hh:mm:ss
+                    TotalTimeText.Text = duration.ToString(@"hh\:mm\:ss");
                 }
             });
         }
