@@ -31,23 +31,24 @@ namespace NevPlayer.App.Views
             PlayerContextMenu.Opening += PlayerContextMenu_Opening;
             SubtitleMenuFlyout.Opening += SubtitleMenuFlyout_Opening;
             AudioMenuFlyout.Opening += AudioMenuFlyout_Opening;
-        }
 
-        /// <summary>
-        /// Connect the media player to the video surface as EARLY as possible —
-        /// before the visual tree even finishes rendering. This is the primary fix
-        /// for the black video screen bug in WinUI 3 MediaPlayerElement.
-        /// </summary>
-        protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
-        {
-            base.OnNavigatedTo(e);
+            // ─────────────────────────────────────────────────────────────────
+            // VIDEO SURFACE — connect ONCE, permanently.
+            //
+            // NavigationCacheMode="Required" means this page is never destroyed,
+            // so we only need to call SetMediaPlayer() a single time right here.
+            // The native MediaPlayer stays connected to VideoSurface for the life
+            // of the app; switching videos just changes _player.Source, the
+            // surface handle never needs to be recreated.
+            //
+            // NEVER call SetMediaPlayer(null) — that destroys the render surface
+            // and is the root cause of the black screen.
+            // ─────────────────────────────────────────────────────────────────
             if (_playbackService.Engine.NativePlayer is Windows.Media.Playback.MediaPlayer nativePlayer)
             {
                 _nativePlayer = nativePlayer;
-                // Clear any old surface first, then bind fresh
-                VideoSurface?.SetMediaPlayer(null);
-                VideoSurface?.SetMediaPlayer(nativePlayer);
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] OnNavigatedTo: VideoSurface connected.");
+                VideoSurface.SetMediaPlayer(nativePlayer);
+                System.Diagnostics.Debug.WriteLine("[NevPlayer] Constructor: VideoSurface permanently connected.");
             }
         }
 
@@ -85,9 +86,9 @@ namespace NevPlayer.App.Views
 
         private void CinemaPage_Loaded(object? sender, RoutedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] CinemaPage_Loaded invoked.");
+            System.Diagnostics.Debug.WriteLine($"[NevPlayer] CinemaPage_Loaded");
 
-            // Subscribe to playback events on load
+            // Subscribe to playback events
             _playbackService.PositionChanged += PlaybackService_PositionChanged;
             _playbackService.StateChanged    += PlaybackService_StateChanged;
             _playbackService.Engine.DurationLoaded += Engine_DurationLoaded;
@@ -100,73 +101,26 @@ namespace NevPlayer.App.Views
                 wmp.MediaEnded     += Engine_MediaEnded;
             }
 
-            if (_playbackService.Engine.NativePlayer is Windows.Media.Playback.MediaPlayer nativePlayer)
-            {
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer found. Connecting to VideoSurface...");
-                _nativePlayer = nativePlayer;
+            // VideoSurface is already permanently connected in the constructor.
+            // Do NOT call SetMediaPlayer() here — it would reset the render surface.
 
-                // Step 1: clear any stale surface binding first
-                VideoSurface?.SetMediaPlayer(null);
-
-                // Step 2: attach the player to the MediaPlayerElement
-                VideoSurface?.SetMediaPlayer(nativePlayer);
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] VideoSurface.SetMediaPlayer() executed.");
-
-                // Step 3: After the page layout fully renders (one frame later), do a
-                // detach + re-attach so the compositor picks up the live video surface.
-                // This is the reliable fix for black video in WinUI 3 when the player
-                // is already playing before the page is navigated to.
-                AttachVideoSurfaceWithDelay(nativePlayer);
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] WARNING: NativePlayer is null!");
-            }
-            
             if (VolumeSlider != null)
-            {
                 VolumeSlider.Value = _playbackService.Volume;
-            }
-            
+
             PlaylistView.ItemsSource = _playlistItems;
-            
-            // Re-sync progress bar maximum and value immediately upon loading
+
             if (TimelineSlider != null)
             {
                 TimelineSlider.Maximum = _playbackService.Duration.TotalSeconds;
-                TimelineSlider.Value = _playbackService.Position.TotalSeconds;
-                CurrentTimeText.Text = _playbackService.Position.ToString(@"hh\:mm\:ss");
-                TotalTimeText.Text = _playbackService.Duration.ToString(@"hh\:mm\:ss");
+                TimelineSlider.Value   = _playbackService.Position.TotalSeconds;
+                CurrentTimeText.Text   = _playbackService.Position.ToString(@"hh\:mm\:ss");
+                TotalTimeText.Text     = _playbackService.Duration.ToString(@"hh\:mm\:ss");
             }
 
-            // Sync play/pause button state
             if (PlayPauseButton != null)
-            {
                 PlayPauseButton.Content = _playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing ? "\uE103" : "\uE102";
-            }
 
             UpdateMetadata();
-        }
-
-        /// <summary>
-        /// Fires a one-shot 300ms timer that disconnects and reconnects the video surface.
-        /// This forces the WinUI 3 compositor to re-acquire the MediaPlayer render target
-        /// after the page's visual tree has had one full layout pass, resolving the
-        /// black-screen bug that occurs when the player is already streaming on navigation.
-        /// </summary>
-        private void AttachVideoSurfaceWithDelay(Windows.Media.Playback.MediaPlayer player)
-        {
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            timer.Tick += (s, e) =>
-            {
-                timer.Stop();
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] Delayed re-attach: clearing surface...");
-                VideoSurface?.SetMediaPlayer(null);
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] Delayed re-attach: binding surface...");
-                VideoSurface?.SetMediaPlayer(player);
-                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] Delayed re-attach complete.");
-            };
-            timer.Start();
         }
 
         private void CinemaPage_Unloaded(object? sender, RoutedEventArgs e)
