@@ -47,7 +47,7 @@ namespace NevPlayer.App.Views
                 // Clear any old surface first, then bind fresh
                 VideoSurface?.SetMediaPlayer(null);
                 VideoSurface?.SetMediaPlayer(nativePlayer);
-                System.Diagnostics.Debug.WriteLine(\"[NevPlayer Diagnostics] OnNavigatedTo: VideoSurface connected.\");
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] OnNavigatedTo: VideoSurface connected.");
             }
         }
 
