@@ -8,5 +8,6 @@ namespace NevPlayer.Core.Services
     {
         Task SavePlaylistAsync(string name, IEnumerable<MediaItem> items);
         Task<List<MediaItem>> LoadPlaylistAsync(string name);
+        void DeletePlaylist(string name);
     }
 }

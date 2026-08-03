@@ -64,10 +64,12 @@ namespace NevPlayer.App.Views
             }
         }
 
-        private void ClearHistory_Click(object sender, RoutedEventArgs e)
+        private async void ClearHistory_Click(object sender, RoutedEventArgs e)
         {
-            // Clear all history items from the view
-            // (The underlying service stores in memory only for prototype phase)
+            if (_historyService != null)
+            {
+                await _historyService.ClearHistoryAsync();
+            }
             HistoryItems.Clear();
             EmptyState.Visibility = Visibility.Visible;
             HistoryListView.Visibility = Visibility.Collapsed;

@@ -5,14 +5,28 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NevPlayer.Core.Models;
 using NevPlayer.Core.Services;
+using NevPlayer.App.Services;
 
 namespace NevPlayer.App.Views
 {
-    // Helper class for grouping
-    public class GroupInfoList<T> : ObservableCollection<T>
+    public class GroupInfoList<T> : ObservableCollection<T>, System.ComponentModel.INotifyPropertyChanged
     {
         public object? Key { get; set; }
-        public string? CoverImagePath { get; set; }
+        
+        private string? _coverImagePath;
+        public string? CoverImagePath
+        {
+            get => _coverImagePath;
+            set
+            {
+                if (_coverImagePath != value)
+                {
+                    _coverImagePath = value;
+                    OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(CoverImagePath)));
+                }
+            }
+        }
+
         public GroupInfoList(System.Collections.Generic.IEnumerable<T> items) : base(items) { }
     }
 
@@ -35,23 +49,77 @@ namespace NevPlayer.App.Views
             LoadLibrary();
         }
 
+        private string _searchQuery = string.Empty;
+
+        public void ApplySearchFilter(string query)
+        {
+            _searchQuery = query ?? string.Empty;
+            LoadLibrary();
+        }
+
         private void LoadLibrary()
         {
             if (_videoLibraryService == null) return;
             GroupedItems.Clear();
             var items = _videoLibraryService.GetAllVideos();
             
-            var query = from item in items
-                        group item by item.Album into g
-                        select new GroupInfoList<MediaItem>(g) 
-                        { 
-                            Key = g.Key,
-                            CoverImagePath = g.FirstOrDefault(x => !string.IsNullOrEmpty(x.AlbumArtPath))?.AlbumArtPath 
-                        };
+            // Filter list based on search query
+            if (!string.IsNullOrEmpty(_searchQuery))
+            {
+                var queryLower = _searchQuery.ToLowerInvariant();
+                items = items.Where(item => 
+                    (item.Title != null && item.Title.ToLowerInvariant().Contains(queryLower)) ||
+                    (item.Album != null && item.Album.ToLowerInvariant().Contains(queryLower)) ||
+                    (item.Artist != null && item.Artist.ToLowerInvariant().Contains(queryLower))
+                ).ToList();
+            }
+            
+            var queryGrouped = from item in items
+                               group item by item.Album into g
+                               select new GroupInfoList<MediaItem>(g) 
+                               { 
+                                   Key = g.Key,
+                                   CoverImagePath = g.FirstOrDefault(x => !string.IsNullOrEmpty(x.AlbumArtPath))?.AlbumArtPath 
+                               };
 
-            foreach (var g in query)
+            foreach (var g in queryGrouped)
             {
                 GroupedItems.Add(g);
+            }
+
+            // Asynchronously generate/load thumbnails in the background
+            LoadThumbnails(items);
+        }
+
+        private void LoadThumbnails(System.Collections.Generic.IEnumerable<MediaItem> items)
+        {
+            var thumbService = new WindowsThumbnailService();
+            foreach (var item in items)
+            {
+                if (string.IsNullOrEmpty(item.AlbumArtPath))
+                {
+                    _ = System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        var thumbPath = await thumbService.GetThumbnailAsync(item.FilePath);
+                        if (!string.IsNullOrEmpty(thumbPath))
+                        {
+                            DispatcherQueue.TryEnqueue(() =>
+                            {
+                                item.AlbumArtPath = thumbPath;
+                                
+                                // Automatically refresh group covers
+                                foreach (var group in GroupedItems)
+                                {
+                                    if (group.Contains(item))
+                                    {
+                                        group.CoverImagePath = group.FirstOrDefault(x => !string.IsNullOrEmpty(x.AlbumArtPath))?.AlbumArtPath;
+                                        break;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
             }
         }
 
@@ -111,7 +179,9 @@ namespace NevPlayer.App.Views
             if (folder != null)
             {
                 LoadingOverlay.Visibility = Visibility.Visible;
-                await _videoLibraryService!.AddVideoFolderAsync(folder.Path);
+                // Run the heavy I/O (metadata extraction, thumbnail generation) off the UI thread
+                // to prevent the app from freezing during import.
+                await System.Threading.Tasks.Task.Run(() => _videoLibraryService!.AddVideoFolderAsync(folder.Path));
                 LoadLibrary();
                 LoadingOverlay.Visibility = Visibility.Collapsed;
             }
@@ -142,11 +212,16 @@ namespace NevPlayer.App.Views
             if (files != null && files.Count > 0)
             {
                 LoadingOverlay.Visibility = Visibility.Visible;
-                
-                var filePaths = new System.Collections.Generic.List<string>();
-                foreach (var file in files) filePaths.Add(file.Path);
 
-                await _videoLibraryService!.AddVideoFilesAsync(filePaths);
+                var filePaths = new System.Collections.Generic.List<string>();
+                foreach (var file in files)
+                {
+                    filePaths.Add(file.Path);
+                }
+
+                // Run the heavy I/O (metadata extraction, thumbnail generation) off the UI thread
+                // to prevent the app from freezing during import.
+                await System.Threading.Tasks.Task.Run(() => _videoLibraryService!.AddVideoFilesAsync(filePaths));
                 LoadLibrary();
 
                 LoadingOverlay.Visibility = Visibility.Collapsed;
@@ -174,6 +249,19 @@ namespace NevPlayer.App.Views
                     this.Frame.Navigate(typeof(CinemaPage));
                 }
             }
+        }
+        private void ClearVideos_Click(object sender, RoutedEventArgs e)
+        {
+            _videoLibraryService?.ClearLibrary();
+            LoadLibrary();
+
+            // Revert view to folder list if we were inside a folder
+            FolderGridView.Visibility = Visibility.Visible;
+            VideoGridView.Visibility = Visibility.Collapsed;
+            BackButton.Visibility = Visibility.Collapsed;
+            PageTitle.Text = "Videos";
+            PageSubtitle.Text = "Your local video collection";
+            VideoGridView.ItemsSource = null;
         }
     }
 }

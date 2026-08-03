@@ -59,5 +59,13 @@ namespace NevPlayer.App.Views
                 }
             }
         }
+        private async void ClearHistory_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            if (_historyService != null)
+            {
+                await _historyService.ClearHistoryAsync();
+            }
+            RecentItems.Clear();
+        }
     }
 }

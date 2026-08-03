@@ -112,6 +112,49 @@ namespace NevPlayer.Core.Services
                 lock (_library)
                 {
                     _library.AddRange(newItems);
+                    
+                    // SMART FALLBACK COVER ART: Resolve any missing album art dynamically
+                    // Loop through all items that are missing album art
+                    foreach (var item in _library.Where(m => string.IsNullOrEmpty(m.AlbumArtPath)))
+                    {
+                        // Try finding another song in the same album that has album art
+                        var siblingWithArt = _library.FirstOrDefault(m => 
+                            !string.IsNullOrEmpty(m.AlbumArtPath) && 
+                            !string.IsNullOrEmpty(m.Album) && 
+                            string.Equals(m.Album, item.Album, StringComparison.OrdinalIgnoreCase));
+
+                        if (siblingWithArt != null)
+                        {
+                            item.AlbumArtPath = siblingWithArt.AlbumArtPath;
+                        }
+                        else
+                        {
+                            // Fallback to same artist if album match isn't found
+                            var artistSibling = _library.FirstOrDefault(m => 
+                                !string.IsNullOrEmpty(m.AlbumArtPath) && 
+                                !string.IsNullOrEmpty(m.Artist) && 
+                                string.Equals(m.Artist, item.Artist, StringComparison.OrdinalIgnoreCase));
+
+                            if (artistSibling != null)
+                            {
+                                item.AlbumArtPath = artistSibling.AlbumArtPath;
+                            }
+                        }
+                    }
+
+                    // Spread newly found album art to all sibling items that might have missed it
+                    foreach (var itemWithArt in _library.Where(m => !string.IsNullOrEmpty(m.AlbumArtPath)).ToList())
+                    {
+                        var targetSiblings = _library.Where(m => 
+                            string.IsNullOrEmpty(m.AlbumArtPath) && 
+                            !string.IsNullOrEmpty(m.Album) && 
+                            string.Equals(m.Album, itemWithArt.Album, StringComparison.OrdinalIgnoreCase));
+
+                        foreach (var sib in targetSiblings)
+                        {
+                            sib.AlbumArtPath = itemWithArt.AlbumArtPath;
+                        }
+                    }
                 }
             });
         }
@@ -126,6 +169,33 @@ namespace NevPlayer.Core.Services
                     _library.Remove(item);
                 }
             }
+        }
+
+        public async Task AddMediaFolderAsync(string folderPath)
+        {
+            if (!Directory.Exists(folderPath)) return;
+
+            var files = new List<string>();
+            var extensions = new[] { ".mp3", ".flac", ".wav", ".wma", ".aac", ".m4a", ".ogg", ".opus" };
+
+            try
+            {
+                var allFiles = Directory.GetFiles(folderPath);
+                foreach (var file in allFiles)
+                {
+                    var ext = Path.GetExtension(file).ToLowerInvariant();
+                    if (extensions.Contains(ext))
+                    {
+                        files.Add(file);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore folder access errors
+            }
+
+            await AddMediaFilesAsync(files);
         }
 
         private string GetStringHash(string text)

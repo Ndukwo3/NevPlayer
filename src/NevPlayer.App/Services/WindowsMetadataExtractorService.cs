@@ -37,7 +37,8 @@ namespace NevPlayer.App.Services
                         if (videoProps.Width > 0 && videoProps.Height > 0) item.Resolution = $"{videoProps.Width}x{videoProps.Height}";
                         item.Bitrate = videoProps.Bitrate;
                         
-                        if (!string.IsNullOrEmpty(videoProps.Title)) item.Title = videoProps.Title;
+                        // Keep using the file name for video titles to prevent generic/duplicate metadata tags from hiding it
+                        item.Title = Path.GetFileNameWithoutExtension(item.FilePath);
                         if (videoProps.Year > 0) item.Year = videoProps.Year;
                     }
                 }

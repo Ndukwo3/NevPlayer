@@ -23,6 +23,23 @@ namespace NevPlayer.Core.Models
         public uint Year { get; set; }
 
         // Helper properties for UI binding
+        public bool IsVideo
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(FilePath)) return false;
+                var ext = System.IO.Path.GetExtension(FilePath).ToLowerInvariant();
+                var videoExtensions = new System.Collections.Generic.HashSet<string>
+                {
+                    ".mp4", ".mkv", ".avi", ".webm", ".mov", ".wmv", ".flv", ".m4v",
+                    ".ts", ".m2ts", ".vob", ".3gp", ".mpeg", ".mpg", ".divx",
+                    ".xvid", ".rmvb", ".asf"
+                };
+                return videoExtensions.Contains(ext);
+            }
+        }
+
+        // Helper properties for UI binding
         public string FormattedDuration => Duration.ToString(Duration.Hours > 0 ? @"hh\:mm\:ss" : @"mm\:ss");
         public string DisplayMetadata 
         {

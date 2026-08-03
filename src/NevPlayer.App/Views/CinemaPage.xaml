@@ -38,6 +38,46 @@
         <!-- Native Windows MediaPlayer Element -->
         <MediaPlayerElement Grid.Column="0" x:Name="VideoSurface" AreTransportControlsEnabled="False" Stretch="Uniform" />
 
+        <!-- Audio Music Visualizer Bar Display (Visible only during music playback) -->
+        <Grid Grid.Column="0" x:Name="AudioVisualizerGrid" Background="#0C0C0C" Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="40">
+                <!-- Glowing Album Disk Card -->
+                <Border Width="240" Height="240" CornerRadius="120" Background="#111111" BorderBrush="#22FFFFFF" BorderThickness="4" RenderTransformOrigin="0.5,0.5">
+                    <Border.RenderTransform>
+                        <RotateTransform x:Name="DiscRotation" Angle="0" />
+                    </Border.RenderTransform>
+                    <Grid>
+                        <Ellipse Width="240" Height="240">
+                            <Ellipse.Fill>
+                                <ImageBrush x:Name="VisualizerAlbumArt" Stretch="UniformToFill" />
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <!-- Center Spindle Glow -->
+                        <Ellipse Width="48" Height="48" Fill="#FF181818" Stroke="{StaticResource NevAccentBrush}" StrokeThickness="2" />
+                    </Grid>
+                </Border>
+
+                <!-- Music Bar Waveform Animation Display -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Height="160">
+                    <Border x:Name="VisualizerBar1" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="25" />
+                    <Border x:Name="VisualizerBar2" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="50" />
+                    <Border x:Name="VisualizerBar3" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="20" />
+                    <Border x:Name="VisualizerBar4" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="90" />
+                    <Border x:Name="VisualizerBar5" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="40" />
+                    <Border x:Name="VisualizerBar6" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="110" />
+                    <Border x:Name="VisualizerBar7" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="65" />
+                    <Border x:Name="VisualizerBar8" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="130" />
+                    <Border x:Name="VisualizerBar9" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="60" />
+                    <Border x:Name="VisualizerBar10" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="80" />
+                    <Border x:Name="VisualizerBar11" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="20" />
+                    <Border x:Name="VisualizerBar12" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="100" />
+                    <Border x:Name="VisualizerBar13" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="30" />
+                    <Border x:Name="VisualizerBar14" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="70" />
+                    <Border x:Name="VisualizerBar15" Width="12" CornerRadius="6" Background="{StaticResource NevAccentBrush}" VerticalAlignment="Bottom" Height="45" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
         <!-- Custom Subtitle Overlay TextBlock -->
         <Grid Grid.Column="0" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,140" IsHitTestVisible="False">
             <Border x:Name="SubtitleBackgroundBorder" Background="#B3000000" CornerRadius="4" Padding="12,6" Visibility="Collapsed">

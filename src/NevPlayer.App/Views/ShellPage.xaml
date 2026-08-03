@@ -8,14 +8,21 @@
     mc:Ignorable="d"
     Background="Transparent">
 
-    <Grid>
+    <Grid Background="#0F0F0F">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
         <!-- Custom Title Bar to prevent drag region from overlapping the hamburger menu -->
-        <Grid x:Name="AppTitleBar" Height="32" VerticalAlignment="Top" Background="Transparent" Canvas.ZIndex="1" Margin="48,0,0,0">
+        <Grid Grid.Row="0" x:Name="AppTitleBar" Height="32" VerticalAlignment="Top" Background="Transparent" Canvas.ZIndex="1" Margin="48,0,0,0">
             <TextBlock Text="NevPlayer" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12" Opacity="0.5" />
         </Grid>
         
         <!-- The main navigation pane for the application -->
-        <NavigationView x:Name="NavView" 
+        <NavigationView Grid.Row="1" Grid.RowSpan="2"
+                        x:Name="NavView" 
                         PaneDisplayMode="LeftCompact"
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="True"
@@ -27,16 +34,65 @@
             </NavigationView.AutoSuggestBox>
             
             <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NowPlayingNavItem" Tag="NowPlaying" Content="Now Playing" Icon="Play" IsEnabled="False" />
                 <NavigationViewItem Tag="Home" Content="Home" Icon="Home" />
                 <NavigationViewItem Tag="Music" Content="Music" Icon="Audio" />
                 <NavigationViewItem Tag="Videos" Content="Videos" Icon="Video" />
-                <NavigationViewItem Tag="Playlists" Content="Playlists" Icon="List" />
                 <NavigationViewItem Tag="Favorites" Content="Favorites" Icon="Favorite" />
                 <NavigationViewItem Tag="History" Content="Recently Played" Icon="Clock" />
             </NavigationView.MenuItems>
             
-            <!-- Frame for navigating to different pages within the app -->
-            <Frame x:Name="ContentFrame" x:FieldModifier="public" />
+            <!-- We wrap the Frame inside a Grid so we can layout the Frame and MiniPlayerDock vertically within NavigationView's content area -->
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Frame for navigating to different pages within the app -->
+                <Frame Grid.Row="0" x:Name="ContentFrame" x:FieldModifier="public" />
+
+                <!-- Persistent Mini Player Docker (hidden by default) -->
+                <Grid Grid.Row="1" x:Name="MiniPlayerDock" Background="#181818" Height="72" Padding="16,8" Visibility="Collapsed" BorderBrush="#282828" BorderThickness="0,1,0,0" Tapped="MiniPlayerDock_Tapped">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Art & Title (clickable to navigate back to CinemaPage) -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" Tapped="MiniPlayerDock_Tapped">
+                        <Border Width="48" Height="48" CornerRadius="4" Background="#282828">
+                            <Image x:Name="MiniAlbumArt" Stretch="UniformToFill" Source="{Binding Converter={StaticResource StringToImageSourceConverter}}" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="MiniTitleText" Text="Not Playing" FontWeight="Bold" MaxWidth="250" TextTrimming="CharacterEllipsis" FontSize="14" Foreground="White" />
+                            <TextBlock x:Name="MiniArtistText" Text="" Opacity="0.6" MaxWidth="250" TextTrimming="CharacterEllipsis" FontSize="12" Foreground="White" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Center: Playback Controls -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Button Content="&#xE892;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="14" Click="MiniPrevious_Click" ToolTipService.ToolTip="Previous" />
+                        <Button Content="&#xEB9E;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="16" Click="MiniSkipBackward_Click" ToolTipService.ToolTip="Skip Backward 10s" />
+                        <Button x:Name="MiniPlayPauseButton" Content="&#xE102;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource NevPrimaryButtonStyle}" CornerRadius="18" Width="36" Height="36" Padding="0" Click="MiniPlayPause_Click" />
+                        <Button Content="&#xEB9D;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="16" Click="MiniSkipForward_Click" ToolTipService.ToolTip="Skip Forward 10s" />
+                        <Button Content="&#xE893;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="14" Click="MiniNext_Click" ToolTipService.ToolTip="Next" />
+                    </StackPanel>
+
+                    <!-- Right: Mini Progress Slider -->
+                    <Grid Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Width="240" Margin="0,0,12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="MiniCurrentTimeText" Grid.Column="0" Text="00:00" FontSize="11" Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White" />
+                        <Slider x:Name="MiniTimelineSlider" Grid.Column="1" Value="0" Maximum="100" VerticalAlignment="Center" Margin="0" Height="24" ValueChanged="MiniTimelineSlider_ValueChanged" />
+                        <TextBlock x:Name="MiniTotalTimeText" Grid.Column="2" Text="00:00" FontSize="11" Opacity="0.6" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="White" />
+                    </Grid>
+                </Grid>
+            </Grid>
         </NavigationView>
     </Grid>
 </Page>

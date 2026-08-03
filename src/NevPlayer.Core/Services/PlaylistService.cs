@@ -39,5 +39,14 @@ namespace NevPlayer.Core.Services
             }
             return new List<MediaItem>();
         }
+
+        public void DeletePlaylist(string name)
+        {
+            var filePath = Path.Combine(_playlistDirectory, $"{name}.json");
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
     }
 }

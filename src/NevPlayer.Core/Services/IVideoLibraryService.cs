@@ -10,5 +10,6 @@ namespace NevPlayer.Core.Services
         Task AddVideoFilesAsync(IEnumerable<string> filePaths, string albumName = "Other Videos");
         Task AddVideoFolderAsync(string folderPath);
         void RemoveVideoFile(string filePath);
+        void ClearLibrary();
     }
 }

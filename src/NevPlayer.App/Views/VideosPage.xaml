@@ -33,14 +33,17 @@
                 </StackPanel>
             </StackPanel>
 
-            <DropDownButton Grid.Column="1" Content="Add Videos" Style="{StaticResource NevPrimaryButtonStyle}" VerticalAlignment="Bottom" Margin="0,0,0,6">
-                <DropDownButton.Flyout>
-                    <MenuFlyout>
-                        <MenuFlyoutItem Text="Add Folder" Icon="Folder" Click="AddFolder_Click"/>
-                        <MenuFlyoutItem Text="Add Files" Icon="Document" Click="AddVideos_Click"/>
-                    </MenuFlyout>
-                </DropDownButton.Flyout>
-            </DropDownButton>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom" Margin="0,0,0,6">
+                <Button Content="Clear Videos" Style="{StaticResource NevSecondaryButtonStyle}" Click="ClearVideos_Click" />
+                <DropDownButton Content="Add Videos" Style="{StaticResource NevPrimaryButtonStyle}">
+                    <DropDownButton.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="Add Folder" Icon="Folder" Click="AddFolder_Click"/>
+                            <MenuFlyoutItem Text="Add Files" Icon="Document" Click="AddVideos_Click"/>
+                        </MenuFlyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
+            </StackPanel>
         </Grid>
 
         <!-- Folder Grid (Default) -->
@@ -76,7 +79,7 @@
                         <!-- Thumbnail -->
                         <Grid>
                             <Border Width="280" Height="158" CornerRadius="8" Background="#1E1E1E">
-                                <Image Source="{Binding AlbumArtPath}" Stretch="UniformToFill" />
+                                <Image Source="{Binding AlbumArtPath, Converter={StaticResource StringToImageSourceConverter}}" Stretch="UniformToFill" />
                             </Border>
                             <Button Content="&#xE107;" 
                                     FontFamily="Segoe Fluent Icons" 

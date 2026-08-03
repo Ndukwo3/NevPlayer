@@ -15,7 +15,14 @@
 
             <!-- Continue Watching Section -->
             <StackPanel Spacing="16">
-                <TextBlock Text="Continue Watching" Style="{StaticResource NevHeaderTextBlockStyle}" FontWeight="SemiBold" Foreground="#CCCCCC" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Continue Watching" Style="{StaticResource NevHeaderTextBlockStyle}" FontWeight="SemiBold" Foreground="#CCCCCC" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="Clear" Style="{StaticResource NevSecondaryButtonStyle}" Click="ClearHistory_Click" VerticalAlignment="Center" Padding="12,6" />
+                </Grid>
                 
                 <GridView x:Name="RecentGridView" ItemsSource="{x:Bind RecentItems, Mode=OneWay}" IsItemClickEnabled="True" ItemClick="RecentGridView_ItemClick" SelectionMode="None">
                     <GridView.ItemTemplate>

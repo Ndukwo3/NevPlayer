@@ -27,19 +27,6 @@ namespace NevPlayer.App.Views
             Loaded += CinemaPage_Loaded;
             Unloaded += CinemaPage_Unloaded;
 
-            // Subscribe to playback events
-            _playbackService.PositionChanged += PlaybackService_PositionChanged;
-            _playbackService.StateChanged    += PlaybackService_StateChanged;
-            _playbackService.Engine.DurationLoaded += Engine_DurationLoaded;
-            _playbackService.MediaChanged    += PlaybackService_MediaChanged;
-
-            // Subscribe to engine-level failure / end events
-            if (_playbackService.Engine is WindowsMediaPlayer wmp)
-            {
-                wmp.PlaybackFailed += Engine_PlaybackFailed;
-                wmp.MediaEnded     += Engine_MediaEnded;
-            }
-
             // Hook up context menus and sub-menus
             PlayerContextMenu.Opening += PlayerContextMenu_Opening;
             SubtitleMenuFlyout.Opening += SubtitleMenuFlyout_Opening;
@@ -83,19 +70,28 @@ namespace NevPlayer.App.Views
             System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] CinemaPage_Loaded invoked.");
             System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] VideoSurface Visibility: {VideoSurface?.Visibility}, ActualWidth: {VideoSurface?.ActualWidth}, ActualHeight: {VideoSurface?.ActualHeight}");
 
+            // Subscribe to playback events on load
+            _playbackService.PositionChanged += PlaybackService_PositionChanged;
+            _playbackService.StateChanged    += PlaybackService_StateChanged;
+            _playbackService.Engine.DurationLoaded += Engine_DurationLoaded;
+            _playbackService.MediaChanged    += PlaybackService_MediaChanged;
+            _playbackService.QueueChanged    += PlaybackService_QueueChanged;
+
+            if (_playbackService.Engine is WindowsMediaPlayer wmp)
+            {
+                wmp.PlaybackFailed += Engine_PlaybackFailed;
+                wmp.MediaEnded     += Engine_MediaEnded;
+            }
+
             if (_playbackService.Engine.NativePlayer is Windows.Media.Playback.MediaPlayer nativePlayer)
             {
                 System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer found. Connecting to VideoSurface...");
                 _nativePlayer = nativePlayer;
 
-                // Initial surface connection (handles the case where media is already playing
-                // when we navigate to CinemaPage, e.g. synchronously-loaded MKV).
+                // Initial surface connection
                 VideoSurface?.SetMediaPlayer(nativePlayer);
                 System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] VideoSurface.SetMediaPlayer(_nativePlayer) executed successfully.");
 
-                // WINUI 3 BUG FIX:
-                // If the player is already playing when the surface is first attached, the video 
-                // pipeline might not render frames (black screen). A quick seek or pause/play forces a render.
                 if (_nativePlayer.PlaybackSession.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing)
                 {
                     System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] NativePlayer is already playing. Initiating Pause/Play kick to force video frame rendering.");
@@ -114,17 +110,27 @@ namespace NevPlayer.App.Views
             }
             
             PlaylistView.ItemsSource = _playlistItems;
-            _playbackService.QueueChanged += PlaybackService_QueueChanged;
             
+            // Re-sync progress bar maximum and value immediately upon loading
+            if (TimelineSlider != null)
+            {
+                TimelineSlider.Maximum = _playbackService.Duration.TotalSeconds;
+                TimelineSlider.Value = _playbackService.Position.TotalSeconds;
+                CurrentTimeText.Text = _playbackService.Position.ToString(@"hh\:mm\:ss");
+                TotalTimeText.Text = _playbackService.Duration.ToString(@"hh\:mm\:ss");
+            }
+
+            // Sync play/pause button state
+            if (PlayPauseButton != null)
+            {
+                PlayPauseButton.Content = _playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing ? "\uE103" : "\uE102";
+            }
+
             UpdateMetadata();
         }
 
         private void CinemaPage_Unloaded(object? sender, RoutedEventArgs e)
         {
-            // Do NOT set _nativePlayer to null or disconnect the surface here.
-            // With NavigationCacheMode="Required", the page stays alive. Disconnecting
-            // the surface causes the WinUI 3 black screen bug when navigating back.
-            
             _playbackService.PositionChanged -= PlaybackService_PositionChanged;
             _playbackService.StateChanged    -= PlaybackService_StateChanged;
             _playbackService.Engine.DurationLoaded -= Engine_DurationLoaded;
@@ -143,6 +149,8 @@ namespace NevPlayer.App.Views
                 _activeSubtitleTrack.CueExited -= ActiveTrack_CueExited;
                 _activeSubtitleTrack = null;
             }
+
+            StopVisualizerAnimation();
         }
 
         private void PlaybackService_MediaChanged(object? sender, EventArgs e)
@@ -152,6 +160,9 @@ namespace NevPlayer.App.Views
                 UpdateMetadata();
             });
         }
+
+        private DispatcherTimer? _visualizerTimer;
+        private readonly Random _rand = new Random();
 
         private void UpdateMetadata()
         {
@@ -166,7 +177,112 @@ namespace NevPlayer.App.Views
                 if (media.Bitrate > 0) metaParts.Add($"{media.Bitrate / 1000} kbps");
                 
                 MediaMetadataText.Text = metaParts.Count > 0 ? string.Join(" • ", metaParts) : "";
+
+                // Decide whether to show Video Surface or Audio Music Visualizer
+                bool isAudio = !media.IsVideo;
+                if (isAudio)
+                {
+                    AudioVisualizerGrid.Visibility = Visibility.Visible;
+                    
+                    // Load album art
+                    if (!string.IsNullOrEmpty(media.AlbumArtPath))
+                    {
+                        VisualizerAlbumArt.ImageSource = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(media.AlbumArtPath));
+                    }
+                    else
+                    {
+                        VisualizerAlbumArt.ImageSource = null;
+                    }
+
+                    StartVisualizerAnimation();
+                }
+                else
+                {
+                    AudioVisualizerGrid.Visibility = Visibility.Collapsed;
+                    StopVisualizerAnimation();
+                }
             }
+        }
+
+        private void StartVisualizerAnimation()
+        {
+            if (_visualizerTimer == null)
+            {
+                _visualizerTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
+                _visualizerTimer.Tick += VisualizerTimer_Tick;
+            }
+
+            if (_playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing)
+            {
+                _visualizerTimer.Start();
+            }
+            else
+            {
+                _visualizerTimer.Stop();
+                ResetVisualizerBars();
+            }
+        }
+
+        private void StopVisualizerAnimation()
+        {
+            _visualizerTimer?.Stop();
+            ResetVisualizerBars();
+        }
+
+        private double _currentRotationAngle = 0;
+
+        private void ResetVisualizerBars()
+        {
+            // Set all visualizer bars back to a default low height
+            if (VisualizerBar1 != null) VisualizerBar1.Height = 15;
+            if (VisualizerBar2 != null) VisualizerBar2.Height = 25;
+            if (VisualizerBar3 != null) VisualizerBar3.Height = 15;
+            if (VisualizerBar4 != null) VisualizerBar4.Height = 35;
+            if (VisualizerBar5 != null) VisualizerBar5.Height = 20;
+            if (VisualizerBar6 != null) VisualizerBar6.Height = 30;
+            if (VisualizerBar7 != null) VisualizerBar7.Height = 25;
+            if (VisualizerBar8 != null) VisualizerBar8.Height = 40;
+            if (VisualizerBar9 != null) VisualizerBar9.Height = 20;
+            if (VisualizerBar10 != null) VisualizerBar10.Height = 25;
+            if (VisualizerBar11 != null) VisualizerBar11.Height = 15;
+            if (VisualizerBar12 != null) VisualizerBar12.Height = 30;
+            if (VisualizerBar13 != null) VisualizerBar13.Height = 20;
+            if (VisualizerBar14 != null) VisualizerBar14.Height = 25;
+            if (VisualizerBar15 != null) VisualizerBar15.Height = 15;
+        }
+
+        private void VisualizerTimer_Tick(object? sender, object e)
+        {
+            if (_playbackService.State != NevPlayer.Core.Models.PlaybackState.Playing)
+            {
+                _visualizerTimer?.Stop();
+                ResetVisualizerBars();
+                return;
+            }
+
+            // Slowly rotate the disc card while playing
+            if (DiscRotation != null)
+            {
+                _currentRotationAngle = (_currentRotationAngle + 2.0) % 360;
+                DiscRotation.Angle = _currentRotationAngle;
+            }
+
+            // Animate each bar to bounce randomly representing live audio frequencies with larger maximum heights (up to 150px)
+            if (VisualizerBar1 != null) VisualizerBar1.Height = _rand.Next(15, 90);
+            if (VisualizerBar2 != null) VisualizerBar2.Height = _rand.Next(25, 120);
+            if (VisualizerBar3 != null) VisualizerBar3.Height = _rand.Next(15, 75);
+            if (VisualizerBar4 != null) VisualizerBar4.Height = _rand.Next(35, 150);
+            if (VisualizerBar5 != null) VisualizerBar5.Height = _rand.Next(20, 110);
+            if (VisualizerBar6 != null) VisualizerBar6.Height = _rand.Next(30, 140);
+            if (VisualizerBar7 != null) VisualizerBar7.Height = _rand.Next(20, 85);
+            if (VisualizerBar8 != null) VisualizerBar8.Height = _rand.Next(40, 160);
+            if (VisualizerBar9 != null) VisualizerBar9.Height = _rand.Next(20, 115);
+            if (VisualizerBar10 != null) VisualizerBar10.Height = _rand.Next(25, 130);
+            if (VisualizerBar11 != null) VisualizerBar11.Height = _rand.Next(15, 80);
+            if (VisualizerBar12 != null) VisualizerBar12.Height = _rand.Next(30, 140);
+            if (VisualizerBar13 != null) VisualizerBar13.Height = _rand.Next(20, 100);
+            if (VisualizerBar14 != null) VisualizerBar14.Height = _rand.Next(25, 115);
+            if (VisualizerBar15 != null) VisualizerBar15.Height = _rand.Next(15, 85);
         }
 
         private bool _isDraggingSlider = false;
@@ -190,7 +306,7 @@ namespace NevPlayer.App.Views
                 if (TimelineSlider != null)
                 {
                     TimelineSlider.Maximum = duration.TotalSeconds;
-                    TotalTimeText.Text = duration.ToString(@"hh\:mm\:ss");
+                    TotalTimeText.Text = duration.ToString(@"hh\:ss");
                 }
             });
         }
@@ -202,6 +318,12 @@ namespace NevPlayer.App.Views
                 if (PlayPauseButton != null)
                 {
                     PlayPauseButton.Content = _playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing ? "\uE103" : "\uE102"; // Pause : Play icon
+                }
+                
+                var media = _playbackService.CurrentMedia;
+                if (media != null && !media.IsVideo)
+                {
+                    StartVisualizerAnimation();
                 }
             });
         }
@@ -466,12 +588,14 @@ namespace NevPlayer.App.Views
                             track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.ImageSubtitle)
                         {
                             var trackIndex = i;
-                            var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
-                            var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {trackIndex + 1}" : track.Label;
-                            
+                            var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : GetFriendlyLanguageName(track.Language);
+
+                            // Show the original label exactly as named in the file; fall back only if empty
+                            var displayName = !string.IsNullOrWhiteSpace(track.Label) ? track.Label : $"Track {trackIndex + 1}";
+
                             var trackItem = new ToggleMenuFlyoutItem 
                             { 
-                                Text = $"*Text - {lang} ({label})",
+                                Text = displayName,
                                 IsChecked = track == _activeSubtitleTrack
                             };
                             trackItem.Click += (s, a) =>
@@ -503,6 +627,36 @@ namespace NevPlayer.App.Views
             }
         }
 
+        private static string GetFriendlyLanguageName(string isoCode)
+        {
+            if (string.IsNullOrWhiteSpace(isoCode)) return "Unknown";
+            try
+            {
+                // Try getting culture name from ISO 639-1 or ISO 639-2 codes
+                var culture = new System.Globalization.CultureInfo(isoCode);
+                return culture.DisplayName;
+            }
+            catch
+            {
+                // Hardcode fallbacks for common media language codes if CultureInfo fails
+                var clean = isoCode.Trim().ToLowerInvariant();
+                switch (clean)
+                {
+                    case "eng": case "en": return "English";
+                    case "jpn": case "ja": return "Japanese";
+                    case "spa": case "es": return "Spanish";
+                    case "fre": case "fra": case "fr": return "French";
+                    case "ger": case "deu": case "de": return "German";
+                    case "chi": case "zho": case "zh": return "Chinese";
+                    case "rus": case "ru": return "Russian";
+                    case "kor": case "ko": return "Korean";
+                    case "por": case "pt": return "Portuguese";
+                    case "ita": case "it": return "Italian";
+                    default: return isoCode; // Fallback to raw code
+                }
+            }
+        }
+
         private void PopulateAudioMenuHelper(System.Collections.Generic.IList<MenuFlyoutItemBase> itemsList)
         {
             // Next Track
@@ -524,12 +678,16 @@ namespace NevPlayer.App.Views
                     {
                         var track = tracks[i];
                         var trackIndex = i;
-                        var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
+                        var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : GetFriendlyLanguageName(track.Language);
                         var label = string.IsNullOrWhiteSpace(track.Label) ? $"Audio {trackIndex + 1}" : track.Label;
                         
+                        var displayName = (label.Equals(track.Language, StringComparison.OrdinalIgnoreCase) || label.StartsWith("Audio Track", StringComparison.OrdinalIgnoreCase)) 
+                            ? lang 
+                            : $"{lang} ({label})";
+
                         var trackItem = new ToggleMenuFlyoutItem 
                         { 
-                            Text = $"{lang} ({label})",
+                            Text = displayName,
                             IsChecked = trackIndex == activeIndex
                         };
                         trackItem.Click += (s, a) =>
