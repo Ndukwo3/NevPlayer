@@ -536,7 +536,7 @@ namespace NevPlayer.App.Views
                 if (showHideToggle.IsChecked)
                 {
                     // Find first subtitle track and activate
-                    var playbackItem = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
+                    var playbackItem = (_playbackService.Engine is WindowsMediaPlayer wmpSub) ? wmpSub.CurrentPlaybackItem : null;
                     if (playbackItem != null && playbackItem.TimedMetadataTracks.Count > 0)
                     {
                         var tracks = playbackItem.TimedMetadataTracks;
@@ -574,7 +574,7 @@ namespace NevPlayer.App.Views
             itemsList.Add(new MenuFlyoutSeparator());
 
             // List available embedded tracks
-            var playbackItemSource = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
+            var playbackItemSource = (_playbackService.Engine is WindowsMediaPlayer wmpTracks) ? wmpTracks.CurrentPlaybackItem : null;
             if (playbackItemSource != null)
             {
                 var tracks = playbackItemSource.TimedMetadataTracks;
@@ -666,7 +666,7 @@ namespace NevPlayer.App.Views
             itemsList.Add(new MenuFlyoutSeparator());
 
             // List available audio tracks
-            var playbackItem = _nativePlayer?.Source as Windows.Media.Playback.MediaPlaybackItem;
+            var playbackItem = (_playbackService.Engine is WindowsMediaPlayer wmpAudio) ? wmpAudio.CurrentPlaybackItem : null;
             if (playbackItem != null)
             {
                 var tracks = playbackItem.AudioTracks;
