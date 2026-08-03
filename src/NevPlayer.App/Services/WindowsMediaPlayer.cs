@@ -16,6 +16,14 @@ namespace NevPlayer.App.Services
 
         public object? NativePlayer => _player;
 
+        /// <summary>
+        /// The current <see cref="MediaPlaybackItem"/> created during the last <see cref="Load"/> call.
+        /// CinemaPage assigns this directly to <c>VideoSurface.Source</c> so the
+        /// <see cref="Windows.UI.Xaml.Controls.MediaPlayerElement"/> owns the native player
+        /// internally — no manual <c>SetMediaPlayer</c> calls are required.
+        /// </summary>
+        public Windows.Media.Playback.MediaPlaybackItem? CurrentPlaybackItem => _currentPlaybackItem;
+
         public event EventHandler<PlaybackState>? StateChanged;
         public event EventHandler<TimeSpan>? PositionChanged;
         public event EventHandler<TimeSpan>? DurationLoaded;

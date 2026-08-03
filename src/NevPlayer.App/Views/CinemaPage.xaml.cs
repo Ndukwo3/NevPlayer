@@ -11,8 +11,6 @@ namespace NevPlayer.App.Views
         private readonly IPlaybackService _playbackService;
         private DispatcherTimer _osdTimer;
 
-        // Held so we can subscribe/unsubscribe from native MediaPlayer events cleanly.
-        private Windows.Media.Playback.MediaPlayer? _nativePlayer;
         private Windows.Media.Core.TimedMetadataTrack? _activeSubtitleTrack;
 
         public CinemaPage()
@@ -33,22 +31,19 @@ namespace NevPlayer.App.Views
             AudioMenuFlyout.Opening += AudioMenuFlyout_Opening;
 
             // ─────────────────────────────────────────────────────────────────
-            // VIDEO SURFACE — connect ONCE, permanently.
+            // VIDEO SURFACE — bind via Source, not SetMediaPlayer.
             //
-            // NavigationCacheMode="Required" means this page is never destroyed,
-            // so we only need to call SetMediaPlayer() a single time right here.
-            // The native MediaPlayer stays connected to VideoSurface for the life
-            // of the app; switching videos just changes _player.Source, the
-            // surface handle never needs to be recreated.
-            //
-            // NEVER call SetMediaPlayer(null) — that destroys the render surface
-            // and is the root cause of the black screen.
+            // Setting VideoSurface.Source = MediaPlaybackItem lets the
+            // MediaPlayerElement create and own its native player internally.
+            // This avoids all SetMediaPlayer(null) surface-destruction issues.
+            // The source is refreshed in PlaybackService_MediaChanged whenever
+            // a new file is loaded.
             // ─────────────────────────────────────────────────────────────────
-            if (_playbackService.Engine.NativePlayer is Windows.Media.Playback.MediaPlayer nativePlayer)
+            if (_playbackService.Engine is WindowsMediaPlayer wmpInit &&
+                wmpInit.CurrentPlaybackItem != null)
             {
-                _nativePlayer = nativePlayer;
-                VideoSurface.SetMediaPlayer(nativePlayer);
-                System.Diagnostics.Debug.WriteLine("[NevPlayer] Constructor: VideoSurface permanently connected.");
+                VideoSurface.Source = wmpInit.CurrentPlaybackItem;
+                System.Diagnostics.Debug.WriteLine("[NevPlayer] Constructor: VideoSurface.Source bound to existing playback item.");
             }
         }
 
@@ -101,8 +96,8 @@ namespace NevPlayer.App.Views
                 wmp.MediaEnded     += Engine_MediaEnded;
             }
 
-            // VideoSurface is already permanently connected in the constructor.
-            // Do NOT call SetMediaPlayer() here — it would reset the render surface.
+            // VideoSurface.Source is set in the constructor (if media is already loaded)
+            // and refreshed in PlaybackService_MediaChanged whenever a new item is loaded.
 
             if (VolumeSlider != null)
                 VolumeSlider.Value = _playbackService.Volume;
@@ -152,6 +147,15 @@ namespace NevPlayer.App.Views
             DispatcherQueue.TryEnqueue(() =>
             {
                 UpdateMetadata();
+
+                // Refresh VideoSurface.Source whenever a new MediaPlaybackItem is produced.
+                // This is the key call that makes video frames appear on screen.
+                if (_playbackService.Engine is WindowsMediaPlayer wmp &&
+                    wmp.CurrentPlaybackItem != null)
+                {
+                    VideoSurface.Source = wmp.CurrentPlaybackItem;
+                    System.Diagnostics.Debug.WriteLine("[NevPlayer] MediaChanged: VideoSurface.Source updated.");
+                }
             });
         }
 
