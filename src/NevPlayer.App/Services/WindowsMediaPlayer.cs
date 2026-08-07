@@ -28,6 +28,16 @@ namespace NevPlayer.App.Services
         public event EventHandler<TimeSpan>? PositionChanged;
         public event EventHandler<TimeSpan>? DurationLoaded;
 
+        private bool _isFullScreen;
+        public bool IsFullScreen
+        {
+            get => _isFullScreen;
+            set => _isFullScreen = value;
+        }
+
+        public TimeSpan Position => _player.PlaybackSession.Position;
+        public TimeSpan Duration => _player.PlaybackSession.NaturalDuration;
+
         /// <summary>Raised when media fails to open, with an error message.</summary>
         public event EventHandler<string>? PlaybackFailed;
 
@@ -51,6 +61,18 @@ namespace NevPlayer.App.Services
         private void Player_MediaOpened(MediaPlayer sender, object args)
         {
             System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] Player_MediaOpened: Media successfully opened by native engine.");
+            
+            // Log video tracks count
+            if (_currentPlaybackItem != null)
+            {
+                var trackCount = _currentPlaybackItem.VideoTracks.Count;
+                System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Video Tracks Count: {trackCount}");
+            }
+
+            // Log natural dimensions
+            System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Width: {sender.PlaybackSession.NaturalVideoWidth}");
+            System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Height: {sender.PlaybackSession.NaturalVideoHeight}");
+
             // Duration becomes available once media is opened.
             // Do NOT fire StateChanged here — PlaybackSession_PlaybackStateChanged already handles it.
             DurationLoaded?.Invoke(this, sender.PlaybackSession.NaturalDuration);
@@ -93,9 +115,19 @@ namespace NevPlayer.App.Services
 
         // ── IMediaPlayer Implementation ────────────────────────────────────────
 
-        public void Initialize(IntPtr windowHandle)
+        // WMF does not use a DirectX swap chain — it attaches to MediaPlayerElement via SetMediaPlayer.
+        // IsInitialized is always true; the swap chain methods are intentional no-ops.
+        public bool IsInitialized => true;
+
+        public void InitializeWithSwapChain(string[] swapChainOptions)
         {
-            // Not needed for MediaPlayerElement integration
+            // No-op: WindowsMediaPlayer does not require swap chain initialisation.
+        }
+
+        public void ReleaseNativeResources()
+        {
+            // Stop playback. The underlying MediaPlayer is kept alive for the application lifetime.
+            Stop();
         }
 
         /// <summary>
@@ -348,6 +380,108 @@ namespace NevPlayer.App.Services
         public void Dispose()
         {
             _player.Dispose();
+        }
+
+        public System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks()
+        {
+            var list = new System.Collections.Generic.List<string>();
+            if (_currentPlaybackItem != null)
+            {
+                var tracks = _currentPlaybackItem.TimedMetadataTracks;
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    var track = tracks[i];
+                    if (track.TimedMetadataKind == TimedMetadataKind.Subtitle || track.TimedMetadataKind == TimedMetadataKind.ImageSubtitle)
+                    {
+                        var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
+                        var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {i + 1} ({lang})" : track.Label;
+                        list.Add(label);
+                    }
+                }
+            }
+            return list;
+        }
+
+        public int GetActiveSubtitleTrackIndex()
+        {
+            if (_currentPlaybackItem != null)
+            {
+                var tracks = _currentPlaybackItem.TimedMetadataTracks;
+                int subIdx = 0;
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    var track = tracks[i];
+                    if (track.TimedMetadataKind == TimedMetadataKind.Subtitle || track.TimedMetadataKind == TimedMetadataKind.ImageSubtitle)
+                    {
+                        var mode = tracks.GetPresentationMode((uint)i);
+                        if (mode == TimedMetadataTrackPresentationMode.PlatformPresented)
+                        {
+                            return subIdx;
+                        }
+                        subIdx++;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        public void SetSubtitleTrack(int index)
+        {
+            if (_currentPlaybackItem != null)
+            {
+                var tracks = _currentPlaybackItem.TimedMetadataTracks;
+                int subIdx = 0;
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    var track = tracks[i];
+                    if (track.TimedMetadataKind == TimedMetadataKind.Subtitle || track.TimedMetadataKind == TimedMetadataKind.ImageSubtitle)
+                    {
+                        if (subIdx == index)
+                        {
+                            tracks.SetPresentationMode((uint)i, TimedMetadataTrackPresentationMode.PlatformPresented);
+                        }
+                        else
+                        {
+                            tracks.SetPresentationMode((uint)i, TimedMetadataTrackPresentationMode.Disabled);
+                        }
+                        subIdx++;
+                    }
+                }
+            }
+        }
+
+        public System.Collections.Generic.IReadOnlyList<string> GetAudioTracks()
+        {
+            var list = new System.Collections.Generic.List<string>();
+            if (_currentPlaybackItem != null)
+            {
+                var tracks = _currentPlaybackItem.AudioTracks;
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    var track = tracks[i];
+                    var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
+                    var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {i + 1} ({lang})" : track.Label;
+                    list.Add(label);
+                }
+            }
+            return list;
+        }
+
+        public int GetActiveAudioTrackIndex()
+        {
+            if (_currentPlaybackItem != null)
+            {
+                return _currentPlaybackItem.AudioTracks.SelectedIndex;
+            }
+            return -1;
+        }
+
+        public void SetAudioTrack(int index)
+        {
+            if (_currentPlaybackItem != null && index >= 0 && index < _currentPlaybackItem.AudioTracks.Count)
+            {
+                _currentPlaybackItem.AudioTracks.SelectedIndex = index;
+            }
         }
     }
 }

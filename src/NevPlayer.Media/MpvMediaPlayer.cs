@@ -8,16 +8,32 @@ namespace NevPlayer.Media
     {
         public object? NativePlayer => null;
         private IntPtr _hwnd = IntPtr.Zero;
+        public bool IsInitialized => true;
 
         public event EventHandler<PlaybackState>? StateChanged;
         public event EventHandler<TimeSpan>? PositionChanged;
         public event EventHandler<TimeSpan>? DurationLoaded;
 
-        public void Initialize(IntPtr windowHandle)
+        public TimeSpan Position => TimeSpan.Zero;
+        public TimeSpan Duration => TimeSpan.Zero;
+        public bool IsFullScreen { get; set; }
+
+        public System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks() => Array.Empty<string>();
+        public int GetActiveSubtitleTrackIndex() => -1;
+        public void SetSubtitleTrack(int index) { }
+
+        public System.Collections.Generic.IReadOnlyList<string> GetAudioTracks() => Array.Empty<string>();
+        public int GetActiveAudioTrackIndex() => -1;
+        public void SetAudioTrack(int index) { }
+
+        public void InitializeWithSwapChain(string[] swapChainOptions)
         {
-            _hwnd = windowHandle;
-            // Phase 4: Mocking libmpv initialization.
-            // Future: mpv_create(), mpv_set_option_string("wid", _hwnd.ToString()), mpv_initialize()
+            // Future mpv_create() logic
+        }
+
+        public void ReleaseNativeResources()
+        {
+            // Future mpv_destroy() logic
         }
 
         public void Load(string filePath)

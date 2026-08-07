@@ -10,6 +10,7 @@ namespace NevPlayer.Core.Services
         private readonly IPlaybackHistoryService? _historyService;
         private List<MediaItem> _queue = new List<MediaItem>();
         private int _currentIndex = -1;
+        private bool _isVideoSurfaceReady = false;
 
         public PlaybackService(IMediaPlayer engine, IPlaybackHistoryService? historyService = null)
         {
@@ -109,10 +110,34 @@ namespace NevPlayer.Core.Services
         public event EventHandler? MediaChanged;
 
         public event EventHandler? QueueChanged;
+        public event EventHandler<object?>? VideoSurfaceAttached;
+
+        public bool IsVideoSurfaceReady => _isVideoSurfaceReady;
+
+        public void AttachVideoSurface(string[] swapChainOptions)
+        {
+            _engine.InitializeWithSwapChain(swapChainOptions);
+            _isVideoSurfaceReady = true;
+            
+            VideoSurfaceAttached?.Invoke(this, _engine.NativePlayer);
+
+            if (CurrentMedia != null)
+            {
+                LoadCurrent();
+                Play();
+            }
+        }
+
+        public void DetachVideoSurface()
+        {
+            Stop();
+            _engine.ReleaseNativeResources();
+            _isVideoSurfaceReady = false;
+        }
 
         public void Play()
         {
-            if (CurrentMedia != null)
+            if (CurrentMedia != null && _engine.IsInitialized)
             {
                 _engine.Play();
             }
@@ -169,7 +194,7 @@ namespace NevPlayer.Core.Services
             _engine.Seek(position);
         }
 
-        public void Enqueue(MediaItem item)
+        public void Enqueue(MediaItem item, bool autoPlay = true)
         {
             if (item != null)
             {
@@ -180,9 +205,20 @@ namespace NevPlayer.Core.Services
                 {
                     _currentIndex = 0;
                     NotifyMediaChanged();
-                    _engine.Load(item.FilePath);
-                    _engine.Play();
+                    if (autoPlay)
+                    {
+                        _engine.Load(item.FilePath);
+                        _engine.Play();
+                    }
                 }
+            }
+        }
+
+        public void LoadCurrent()
+        {
+            if (CurrentMedia != null)
+            {
+                _engine.Load(CurrentMedia.FilePath);
             }
         }
 

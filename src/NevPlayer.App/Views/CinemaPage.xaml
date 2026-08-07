@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vlc="using:LibVLCSharp.Platforms.Windows"
     mc:Ignorable="d"
     NavigationCacheMode="Required"
     Background="{StaticResource NevBackgroundBrush}"
@@ -37,6 +38,9 @@
 
         <!-- Native Windows MediaPlayer Element -->
         <MediaPlayerElement Grid.Column="0" x:Name="VideoSurface" AreTransportControlsEnabled="False" Stretch="Uniform" />
+
+        <!-- LibVLCSharp VideoView -->
+        <vlc:VideoView Grid.Column="0" x:Name="VlcVideoSurface" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Collapsed" />
 
         <!-- Audio Music Visualizer Bar Display (Visible only during music playback) -->
         <Grid Grid.Column="0" x:Name="AudioVisualizerGrid" Background="#0C0C0C" Visibility="Collapsed">

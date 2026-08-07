@@ -59,6 +59,17 @@
                             </StackPanel>
                             <ToggleSwitch x:Name="HardwareAccelToggle" Grid.Column="1" IsOn="True" VerticalAlignment="Center" Toggled="HardwareAccelToggle_Toggled" />
                         </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Use LibVLC Engine" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="SemiBold" />
+                                <TextBlock Text="Use LibVLC for playback (enables advanced codecs and formats)" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#999999" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="LibVlcToggle" Grid.Column="1" IsOn="False" VerticalAlignment="Center" Toggled="LibVlcToggle_Toggled" />
+                        </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>

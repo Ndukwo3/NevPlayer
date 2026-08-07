@@ -242,7 +242,7 @@ namespace NevPlayer.App.Views
             if (e.ClickedItem is MediaItem item)
             {
                 _playbackService?.ClearQueue();
-                _playbackService?.Enqueue(item);
+                _playbackService?.Enqueue(item, autoPlay: false);
                 
                 if (this.Frame != null)
                 {

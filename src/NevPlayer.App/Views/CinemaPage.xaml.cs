@@ -30,21 +30,89 @@ namespace NevPlayer.App.Views
             SubtitleMenuFlyout.Opening += SubtitleMenuFlyout_Opening;
             AudioMenuFlyout.Opening += AudioMenuFlyout_Opening;
 
-            // ─────────────────────────────────────────────────────────────────
-            // VIDEO SURFACE — bind via Source, not SetMediaPlayer.
-            //
-            // Setting VideoSurface.Source = MediaPlaybackItem lets the
-            // MediaPlayerElement create and own its native player internally.
-            // This avoids all SetMediaPlayer(null) surface-destruction issues.
-            // The source is refreshed in PlaybackService_MediaChanged whenever
-            // a new file is loaded.
-            // ─────────────────────────────────────────────────────────────────
-            if (_playbackService.Engine is WindowsMediaPlayer wmpInit &&
-                wmpInit.CurrentPlaybackItem != null)
+            VlcVideoSurface.Initialized += VlcSurface_Initialized;
+            _playbackService.VideoSurfaceAttached += PlaybackService_VideoSurfaceAttached;
+        }
+
+        private void VlcSurface_Initialized(object? sender, LibVLCSharp.Platforms.Windows.InitializedEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("[NevPlayer] VlcVideoSurface.Initialized fired. Attaching surface.");
+            _playbackService.AttachVideoSurface(e.SwapChainOptions);
+        }
+
+        private void PlaybackService_VideoSurfaceAttached(object? sender, object? nativePlayer)
+        {
+            if (nativePlayer is LibVLCSharp.Shared.MediaPlayer vlcPlayer)
             {
-                VideoSurface.Source = wmpInit.CurrentPlaybackItem;
-                System.Diagnostics.Debug.WriteLine("[NevPlayer] Constructor: VideoSurface.Source bound to existing playback item.");
+                VlcVideoSurface.MediaPlayer = vlcPlayer;
+                System.Diagnostics.Debug.WriteLine("[NevPlayer] VlcVideoSurface.MediaPlayer bound successfully via event.");
             }
+        }
+
+        private void UpdateVideoSurfaces()
+        {
+            var settings = App.SettingsService;
+            if (_playbackService.Engine is SwitchableMediaPlayer smp)
+            {
+                bool useLibVlc = settings?.UseLibVLC ?? false;
+                if (useLibVlc)
+                {
+                    VideoSurface.Visibility = Visibility.Collapsed;
+                    VlcVideoSurface.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    VlcVideoSurface.Visibility = Visibility.Collapsed;
+                    VideoSurface.Visibility = Visibility.Visible;
+
+                    if (smp.WmfNativePlayer is Windows.Media.Playback.MediaPlayer wmfPlayer)
+                    {
+                        try
+                        {
+                            if (VideoSurface.MediaPlayer != wmfPlayer)
+                            {
+                                VideoSurface.SetMediaPlayer(wmfPlayer);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] VideoSurface.SetMediaPlayer bind error: {ex.Message}");
+                        }
+                    }
+                }
+            }
+        }
+
+        protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] CinemaPage.OnNavigatedTo called.");
+            
+            UpdateVideoSurfaces();
+            VideoSurface.UpdateLayout();
+            VlcVideoSurface.UpdateLayout();
+
+            var settings = App.SettingsService;
+            if (settings?.UseLibVLC == true && !_playbackService.IsVideoSurfaceReady)
+            {
+                // If the page was cached, Initialized won't fire again.
+                // We re-attach manually using the existing SwapChainOptions.
+                try
+                {
+                    _playbackService.AttachVideoSurface(VlcVideoSurface.SwapChainOptions);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Failed to re-attach VideoSurface on navigate: {ex.Message}");
+                }
+            }
+        }
+
+        protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] CinemaPage.OnNavigatedFrom called.");
+            System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] OnNavigatedFrom: Keeping MediaPlayer attached to prevent surface destruction.");
         }
 
         private void OsdTimer_Tick(object? sender, object e)
@@ -90,14 +158,19 @@ namespace NevPlayer.App.Views
             _playbackService.MediaChanged    += PlaybackService_MediaChanged;
             _playbackService.QueueChanged    += PlaybackService_QueueChanged;
 
+            if (_playbackService.Engine is SwitchableMediaPlayer smp)
+            {
+                smp.EngineChanged += Smp_EngineChanged;
+            }
+
             if (_playbackService.Engine is WindowsMediaPlayer wmp)
             {
                 wmp.PlaybackFailed += Engine_PlaybackFailed;
                 wmp.MediaEnded     += Engine_MediaEnded;
             }
 
-            // VideoSurface.Source is set in the constructor (if media is already loaded)
-            // and refreshed in PlaybackService_MediaChanged whenever a new item is loaded.
+            // VideoSurface is bound to the shared player via SetMediaPlayer.
+            // We keep it connected to prevent DirectComposition surface destruction.
 
             if (VolumeSlider != null)
                 VolumeSlider.Value = _playbackService.Volume;
@@ -116,6 +189,24 @@ namespace NevPlayer.App.Views
                 PlayPauseButton.Content = _playbackService.State == NevPlayer.Core.Models.PlaybackState.Playing ? "\uE103" : "\uE102";
 
             UpdateMetadata();
+            UpdateVideoSurfaces();
+
+            var settings = App.SettingsService;
+            bool useLibVlc = settings?.UseLibVLC ?? false;
+
+            if (useLibVlc)
+            {
+                VlcVideoSurface.Visibility = Visibility.Visible;
+                // Engine loading and playing is now handled by PlaybackService.AttachVideoSurface
+                // which is triggered by VlcVideoSurface.Initialized.
+            }
+            else
+            {
+                VlcVideoSurface.Visibility = Visibility.Collapsed;
+                VideoSurface.Visibility = Visibility.Visible;
+                _playbackService.LoadCurrent();
+                _playbackService.Play();
+            }
         }
 
         private void CinemaPage_Unloaded(object? sender, RoutedEventArgs e)
@@ -125,6 +216,11 @@ namespace NevPlayer.App.Views
             _playbackService.Engine.DurationLoaded -= Engine_DurationLoaded;
             _playbackService.MediaChanged    -= PlaybackService_MediaChanged;
             _playbackService.QueueChanged    -= PlaybackService_QueueChanged;
+
+            if (_playbackService.Engine is SwitchableMediaPlayer smp)
+            {
+                smp.EngineChanged -= Smp_EngineChanged;
+            }
 
             if (_playbackService.Engine is WindowsMediaPlayer wmp)
             {
@@ -142,20 +238,26 @@ namespace NevPlayer.App.Views
             StopVisualizerAnimation();
         }
 
+        private void Smp_EngineChanged(object? sender, EventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                UpdateVideoSurfaces();
+                UpdateMetadata();
+            });
+        }
+
         private void PlaybackService_MediaChanged(object? sender, EventArgs e)
         {
             DispatcherQueue.TryEnqueue(() =>
             {
                 UpdateMetadata();
+                UpdateVideoSurfaces();
 
-                // Refresh VideoSurface.Source whenever a new MediaPlaybackItem is produced.
-                // This is the key call that makes video frames appear on screen.
-                if (_playbackService.Engine is WindowsMediaPlayer wmp &&
-                    wmp.CurrentPlaybackItem != null)
-                {
-                    VideoSurface.Source = wmp.CurrentPlaybackItem;
-                    System.Diagnostics.Debug.WriteLine("[NevPlayer] MediaChanged: VideoSurface.Source updated.");
-                }
+                // Make sure layout updates to accommodate the video aspect ratio and bounds.
+                VideoSurface.UpdateLayout();
+                VlcVideoSurface.UpdateLayout();
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] MediaChanged: VideoSurface layouts updated.");
             });
         }
 

@@ -1,0 +1,31 @@
+<Page
+    x:Class="NevPlayer.App.Views.TestVideoPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="Blue">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Spacing="10" Padding="10">
+            <Button Content="Load Local Video" Click="LoadVideo_Click" />
+            <Button Content="Play" Click="Play_Click" />
+            <Button Content="Pause" Click="Pause_Click" />
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="White" />
+        </StackPanel>
+        
+        <!-- Add a red background so we can see if the MediaPlayerElement itself is visible -->
+        <Border Grid.Row="1" Background="Red" Margin="20">
+            <MediaPlayerElement
+                x:Name="VideoSurface"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Stretch="Uniform"/>
+        </Border>
+    </Grid>
+</Page>

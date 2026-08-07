@@ -7,6 +7,22 @@ namespace NevPlayer.App
         public App()
         {
             this.InitializeComponent();
+            this.UnhandledException += App_UnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[NevPlayer AppDomain UnhandledException] {e.ExceptionObject}");
+            };
+            TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[NevPlayer TaskScheduler UnobservedTaskException] {e.Exception}");
+                e.SetObserved();
+            };
+        }
+
+        private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine($"[NevPlayer UnhandledException] {e.Message} \n {e.Exception}");
+            e.Handled = true; // Prevent app crash
         }
 
         // Static Service Locators for prototype phase
@@ -20,26 +36,38 @@ namespace NevPlayer.App
 
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            var mediaEngine = new NevPlayer.App.Services.WindowsMediaPlayer();
-            mediaEngine.Initialize(IntPtr.Zero);
-            HistoryService = new NevPlayer.Core.Services.PlaybackHistoryService();
-            FavoritesService = new NevPlayer.Core.Services.FavoritesService();
-            SettingsService = new NevPlayer.Core.Services.SettingsService();
-            PlaybackService = new NevPlayer.Core.Services.PlaybackService(mediaEngine, HistoryService);
-            
-            // Set default speed if saved
-            PlaybackService.PlaybackSpeed = SettingsService.DefaultPlaybackSpeed;
+            try
+            {
+                HistoryService = new NevPlayer.Core.Services.PlaybackHistoryService();
+                FavoritesService = new NevPlayer.Core.Services.FavoritesService();
+                SettingsService = new NevPlayer.Core.Services.SettingsService();
 
-            MetadataExtractorService = new NevPlayer.App.Services.WindowsMetadataExtractorService();
-            LibraryService = new NevPlayer.Core.Services.MediaLibraryService();
-            
-            var thumbnailService = new NevPlayer.App.Services.WindowsThumbnailService();
-            VideoLibraryService = new NevPlayer.Core.Services.VideoLibraryService(thumbnailService, MetadataExtractorService);
+                var mediaEngine = new NevPlayer.App.Services.SwitchableMediaPlayer(SettingsService);
+                PlaybackService = new NevPlayer.Core.Services.PlaybackService(mediaEngine, HistoryService);
+                
+                // Set default speed if saved
+                PlaybackService.PlaybackSpeed = SettingsService.DefaultPlaybackSpeed;
+
+                MetadataExtractorService = new NevPlayer.App.Services.WindowsMetadataExtractorService();
+                LibraryService = new NevPlayer.Core.Services.MediaLibraryService();
+                
+                var thumbnailService = new NevPlayer.App.Services.WindowsThumbnailService();
+                VideoLibraryService = new NevPlayer.Core.Services.VideoLibraryService(thumbnailService, MetadataExtractorService);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NevPlayer Service Init Error] {ex}");
+            }
 
             m_window = new MainWindow();
             m_window.Activate();
 
-            ApplyTheme(SettingsService.AppTheme);
+            if (SettingsService != null)
+            {
+                ApplyTheme(SettingsService.AppTheme);
+            }
+
+
         }
 
         private void ApplyTheme(string theme)

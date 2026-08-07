@@ -45,6 +45,22 @@ namespace NevPlayer.Core.Services
             set { _data.HardwareAcceleration = value; Save(); }
         }
 
+        public event EventHandler<bool>? UseLibVLCChanged;
+
+        public bool UseLibVLC
+        {
+            get => _data.UseLibVLC;
+            set
+            {
+                if (_data.UseLibVLC != value)
+                {
+                    _data.UseLibVLC = value;
+                    Save();
+                    UseLibVLCChanged?.Invoke(this, value);
+                }
+            }
+        }
+
         public void Save()
         {
             try
@@ -80,6 +96,7 @@ namespace NevPlayer.Core.Services
             public double DefaultPlaybackSpeed { get; set; } = 1.0;
             public bool ResumePlayback { get; set; } = true;
             public bool HardwareAcceleration { get; set; } = true;
+            public bool UseLibVLC { get; set; } = true;
         }
     }
 }

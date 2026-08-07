@@ -22,6 +22,7 @@ namespace NevPlayer.App.Views
             DarkModeToggle.IsOn = _settingsService?.AppTheme != "Light";
             ResumeToggle.IsOn = _settingsService?.ResumePlayback ?? true;
             HardwareAccelToggle.IsOn = _settingsService?.HardwareAcceleration ?? true;
+            LibVlcToggle.IsOn = _settingsService?.UseLibVLC ?? false;
             _isLoading = false;
         }
 
@@ -48,6 +49,12 @@ namespace NevPlayer.App.Views
         {
             if (_isLoading || _settingsService == null) return;
             _settingsService.HardwareAcceleration = HardwareAccelToggle.IsOn;
+        }
+
+        private void LibVlcToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading || _settingsService == null) return;
+            _settingsService.UseLibVLC = LibVlcToggle.IsOn;
         }
     }
 }

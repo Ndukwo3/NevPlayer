@@ -6,8 +6,10 @@ namespace NevPlayer.Core.Services
     public interface IMediaPlayer : IDisposable
     {
         object? NativePlayer { get; }
+        bool IsInitialized { get; }
         
-        void Initialize(IntPtr windowHandle);
+        void InitializeWithSwapChain(string[] arguments);
+        void ReleaseNativeResources();
         void Load(string filePath);
         void Play();
         void Pause();
@@ -28,8 +30,24 @@ namespace NevPlayer.Core.Services
         // Speed Control
         void SetPlaybackRate(double rate);
         
+        // Playback Info
+        TimeSpan Position { get; }
+        TimeSpan Duration { get; }
+        
+        // Fullscreen Support
+        bool IsFullScreen { get; set; }
+        
+        // Extended Track Info APIs
+        System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks();
+        int GetActiveSubtitleTrackIndex();
+        void SetSubtitleTrack(int index);
+        
+        System.Collections.Generic.IReadOnlyList<string> GetAudioTracks();
+        int GetActiveAudioTrackIndex();
+        void SetAudioTrack(int index);
+
         event EventHandler<PlaybackState>? StateChanged;
-        event EventHandler<TimeSpan>? PositionChanged;
-        event EventHandler<TimeSpan>? DurationLoaded;
+        public event EventHandler<TimeSpan>? PositionChanged;
+        public event EventHandler<TimeSpan>? DurationLoaded;
     }
 }
