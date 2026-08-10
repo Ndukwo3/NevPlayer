@@ -17,7 +17,10 @@
 
         <!-- Custom Title Bar to prevent drag region from overlapping the hamburger menu -->
         <Grid Grid.Row="0" x:Name="AppTitleBar" Height="32" VerticalAlignment="Top" Background="Transparent" Canvas.ZIndex="1" Margin="48,0,0,0">
-            <TextBlock Text="NevPlayer" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12" Opacity="0.5" />
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                <Image Source="ms-appx:///Assets/NevPlayer-Symbol.png" Width="16" Height="16" VerticalAlignment="Center" />
+                <TextBlock Text="NevPlayer" VerticalAlignment="Center" FontSize="12" Opacity="0.5" />
+            </StackPanel>
         </Grid>
         
         <!-- The main navigation pane for the application -->

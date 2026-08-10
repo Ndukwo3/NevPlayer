@@ -12,7 +12,8 @@ namespace NevPlayer.App
             // Setup basic Window settings
             Title = "NevPlayer";
             ExtendsContentIntoTitleBar = true; // Use custom title bar
-            
+            AppWindow.SetIcon(System.IO.Path.Combine(System.AppContext.BaseDirectory, "Assets", "NevPlayer.ico"));
+
             // Set the custom title bar element so the system drag region 
             // doesn't overlap the hamburger menu button.
             AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
