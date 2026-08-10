@@ -11,13 +11,28 @@ namespace NevPlayer.Core.Services
         private List<MediaItem> _queue = new List<MediaItem>();
         private int _currentIndex = -1;
         private bool _isVideoSurfaceReady = false;
+        private TimeSpan? _pendingResumePosition;
 
         public PlaybackService(IMediaPlayer engine, IPlaybackHistoryService? historyService = null)
         {
             _engine = engine;
             _historyService = historyService;
             
-            _engine.StateChanged += (s, state) => State = state;
+            _engine.StateChanged += (s, state) => 
+            {
+                State = state;
+                if (state == PlaybackState.Playing && _pendingResumePosition != null)
+                {
+                    var pos = _pendingResumePosition.Value;
+                    _pendingResumePosition = null;
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        System.Diagnostics.Debug.WriteLine("[LOG] Deferred seek executed");
+                        Seek(pos);
+                    });
+                }
+            };
+            
             _engine.PositionChanged += async (s, pos) => 
             {
                 Position = pos;
@@ -33,13 +48,15 @@ namespace NevPlayer.Core.Services
             
             _engine.DurationLoaded += (s, dur) => 
             {
+                System.Diagnostics.Debug.WriteLine("[LOG] DurationLoaded fired");
                 if (CurrentMedia != null && _historyService != null)
                 {
                     CurrentMedia.Duration = dur;
                     var resumePos = _historyService.GetResumePosition(CurrentMedia.FilePath);
                     if (resumePos.TotalSeconds > 0)
                     {
-                        Seek(resumePos);
+                        System.Diagnostics.Debug.WriteLine("[LOG] Resume position loaded");
+                        _pendingResumePosition = resumePos;
                     }
                 }
             };
@@ -58,6 +75,10 @@ namespace NevPlayer.Core.Services
                 if (_state != value)
                 {
                     _state = value;
+                    if (_state == PlaybackState.Playing)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[LOG] Playback started");
+                    }
                     StateChanged?.Invoke(this, EventArgs.Empty);
                 }
             }
@@ -137,8 +158,10 @@ namespace NevPlayer.Core.Services
 
         public void Play()
         {
+            System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] PlaybackService.Play called");
             if (CurrentMedia != null && _engine.IsInitialized)
             {
+                System.Diagnostics.Debug.WriteLine("[LOG] Play called");
                 _engine.Play();
             }
         }
@@ -196,6 +219,7 @@ namespace NevPlayer.Core.Services
 
         public void Enqueue(MediaItem item, bool autoPlay = true)
         {
+            System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Enqueue called for '{item?.Title}', autoPlay={autoPlay}");
             if (item != null)
             {
                 _queue.Add(item);
@@ -207,6 +231,7 @@ namespace NevPlayer.Core.Services
                     NotifyMediaChanged();
                     if (autoPlay)
                     {
+                        System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] Enqueue autoPlay triggering Load/Play for '{item.Title}'");
                         _engine.Load(item.FilePath);
                         _engine.Play();
                     }
@@ -218,6 +243,8 @@ namespace NevPlayer.Core.Services
         {
             if (CurrentMedia != null)
             {
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] LoadCurrent called for '" + CurrentMedia.Title + "'");
+                System.Diagnostics.Debug.WriteLine("[LOG] LoadCurrent called");
                 _engine.Load(CurrentMedia.FilePath);
             }
         }
@@ -280,10 +307,12 @@ namespace NevPlayer.Core.Services
 
         public void PlayQueueItem(int index)
         {
+            System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] PlayQueueItem called with index={index}");
             if (index >= 0 && index < _queue.Count)
             {
                 _currentIndex = index;
                 NotifyMediaChanged();
+                System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] PlayQueueItem triggering Load/Play for '{CurrentMedia?.Title}'");
                 _engine.Load(CurrentMedia!.FilePath);
                 _engine.Play();
             }
@@ -300,6 +329,10 @@ namespace NevPlayer.Core.Services
 
         private void NotifyMediaChanged()
         {
+            for (int i = 0; i < _queue.Count; i++)
+            {
+                _queue[i].IsPlaying = (i == _currentIndex);
+            }
             MediaChanged?.Invoke(this, EventArgs.Empty);
             Position = TimeSpan.Zero;
         }

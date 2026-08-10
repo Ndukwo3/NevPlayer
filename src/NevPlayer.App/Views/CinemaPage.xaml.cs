@@ -10,6 +10,7 @@ namespace NevPlayer.App.Views
     {
         private readonly IPlaybackService _playbackService;
         private DispatcherTimer _osdTimer;
+        private DispatcherTimer _drawerHideTimer;
 
         private Windows.Media.Core.TimedMetadataTrack? _activeSubtitleTrack;
 
@@ -21,6 +22,9 @@ namespace NevPlayer.App.Views
 
             _osdTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _osdTimer.Tick += OsdTimer_Tick;
+
+            _drawerHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _drawerHideTimer.Tick += DrawerHideTimer_Tick;
 
             Loaded += CinemaPage_Loaded;
             Unloaded += CinemaPage_Unloaded;
@@ -138,6 +142,30 @@ namespace NevPlayer.App.Views
             }
         }
 
+        private void RightArrow_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+        {
+            args.Handled = true;
+            if (_playbackService != null)
+            {
+                var newPos = _playbackService.Position + TimeSpan.FromSeconds(5);
+                if (newPos > _playbackService.Duration) newPos = _playbackService.Duration;
+                _playbackService.Seek(newPos);
+                ShowOsd("+5s");
+            }
+        }
+
+        private void LeftArrow_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+        {
+            args.Handled = true;
+            if (_playbackService != null)
+            {
+                var newPos = _playbackService.Position - TimeSpan.FromSeconds(5);
+                if (newPos < TimeSpan.Zero) newPos = TimeSpan.Zero;
+                _playbackService.Seek(newPos);
+                ShowOsd("-5s");
+            }
+        }
+
         private void ShowOsd(string text)
         {
             if (OsdText == null || _osdTimer == null) return;
@@ -149,7 +177,7 @@ namespace NevPlayer.App.Views
 
         private void CinemaPage_Loaded(object? sender, RoutedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine($"[NevPlayer] CinemaPage_Loaded");
+            System.Diagnostics.Debug.WriteLine("[LOG] CinemaPage loaded");
 
             // Subscribe to playback events
             _playbackService.PositionChanged += PlaybackService_PositionChanged;
@@ -168,6 +196,15 @@ namespace NevPlayer.App.Views
                 wmp.PlaybackFailed += Engine_PlaybackFailed;
                 wmp.MediaEnded     += Engine_MediaEnded;
             }
+
+            // Synchronize the local playlist state when the page becomes active
+            _playlistItems.Clear();
+            foreach (var item in _playbackService.Queue)
+            {
+                _playlistItems.Add(item);
+            }
+
+            HighlightActivePlaylistItem();
 
             // VideoSurface is bound to the shared player via SetMediaPlayer.
             // We keep it connected to prevent DirectComposition surface destruction.
@@ -204,8 +241,32 @@ namespace NevPlayer.App.Views
             {
                 VlcVideoSurface.Visibility = Visibility.Collapsed;
                 VideoSurface.Visibility = Visibility.Visible;
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] CinemaPage_Loaded calling LoadCurrent() and Play() manually");
                 _playbackService.LoadCurrent();
                 _playbackService.Play();
+            }
+        }
+
+        private bool _isUpdatingPlaylistSelection = false;
+
+        private void HighlightActivePlaylistItem()
+        {
+            var currentMedia = _playbackService.CurrentMedia;
+            if (currentMedia == null) return;
+            
+            var currentIndex = _playlistItems.IndexOf(currentMedia);
+            if (currentIndex >= 0 && currentIndex < _playlistItems.Count)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] HighlightActivePlaylistItem setting index {currentIndex}");
+                _isUpdatingPlaylistSelection = true;
+                try
+                {
+                    PlaylistView.SelectedIndex = currentIndex;
+                }
+                finally
+                {
+                    _isUpdatingPlaylistSelection = false;
+                }
             }
         }
 
@@ -253,6 +314,7 @@ namespace NevPlayer.App.Views
             {
                 UpdateMetadata();
                 UpdateVideoSurfaces();
+                HighlightActivePlaylistItem();
 
                 // Make sure layout updates to accommodate the video aspect ratio and bounds.
                 VideoSurface.UpdateLayout();
@@ -386,6 +448,7 @@ namespace NevPlayer.App.Views
         }
 
         private bool _isDraggingSlider = false;
+        private bool _isUpdatingSlider = false;
 
         private void PlaybackService_PositionChanged(object? sender, EventArgs e)
         {
@@ -393,8 +456,23 @@ namespace NevPlayer.App.Views
             {
                 if (!_isDraggingSlider && TimelineSlider != null)
                 {
-                    TimelineSlider.Value = _playbackService.Position.TotalSeconds;
+                    _isUpdatingSlider = true;
+                    
+                    var durationSecs = _playbackService.Duration.TotalSeconds;
+                    var posSecs = _playbackService.Position.TotalSeconds;
+                    
+                    if (durationSecs > 0)
+                    {
+                        TimelineSlider.Maximum = durationSecs;
+                        if (TimelineSlider.Maximum > TimelineSlider.Minimum)
+                        {
+                            var safeValue = Math.Clamp(posSecs, TimelineSlider.Minimum, TimelineSlider.Maximum);
+                            TimelineSlider.Value = safeValue;
+                        }
+                    }
+                    
                     CurrentTimeText.Text = _playbackService.Position.ToString(@"hh\:mm\:ss");
+                    _isUpdatingSlider = false;
                 }
             });
         }
@@ -455,6 +533,8 @@ namespace NevPlayer.App.Views
 
         private void TimelineSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
+            if (TimelineSlider == null || TimelineSlider.Maximum <= 0 || _isUpdatingSlider) return;
+
             // Only seek if the user is interacting with the slider directly, 
             // not when we update it programmatically from PositionChanged
             // In a real app we'd use PointerCapture or thumb drag events, but for now we can seek on value change if it's a large jump.
@@ -872,6 +952,7 @@ namespace NevPlayer.App.Views
             }
         }
 
+
         private async void AddPlaylist_Click(object sender, RoutedEventArgs e)
         {
             var picker = new Windows.Storage.Pickers.FileOpenPicker();
@@ -918,13 +999,20 @@ namespace NevPlayer.App.Views
             ShowOsd("Playlist Saved");
         }
 
-        private void PlaylistView_ItemClick(object sender, ItemClickEventArgs e)
+        private void PlaylistView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (e.ClickedItem is NevPlayer.Core.Models.MediaItem mediaItem)
+            if (_isUpdatingPlaylistSelection) 
+            {
+                System.Diagnostics.Debug.WriteLine("[NevPlayer Diagnostics] PlaylistView_SelectionChanged ignored (programmatic selection)");
+                return;
+            }
+
+            if (PlaylistView.SelectedItem is NevPlayer.Core.Models.MediaItem mediaItem)
             {
                 var index = _playlistItems.IndexOf(mediaItem);
                 if (index >= 0)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] PlaylistView_SelectionChanged calling PlayQueueItem({index})");
                     _playbackService.PlayQueueItem(index);
                 }
             }
@@ -1093,6 +1181,28 @@ namespace NevPlayer.App.Views
                 SubtitleTextBlock.Text = "";
                 SubtitleBackgroundBorder.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void DrawerHideTimer_Tick(object? sender, object e)
+        {
+            _drawerHideTimer.Stop();
+            SlideOutStoryboard.Begin();
+        }
+
+        private void PlaylistEdgeTrigger_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _drawerHideTimer.Stop();
+            SlideInStoryboard.Begin();
+        }
+
+        private void PlaylistDrawer_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _drawerHideTimer.Stop();
+        }
+
+        private void PlaylistDrawer_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _drawerHideTimer.Start();
         }
 
         private void VideoSurface_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)

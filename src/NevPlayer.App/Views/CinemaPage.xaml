@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vlc="using:LibVLCSharp.Platforms.Windows"
+    xmlns:converters="using:NevPlayer.App.Converters"
     mc:Ignorable="d"
     NavigationCacheMode="Required"
     Background="{StaticResource NevBackgroundBrush}"
@@ -12,14 +13,31 @@
 
     <Page.KeyboardAccelerators>
         <KeyboardAccelerator Key="Space" Invoked="Spacebar_Invoked" />
+        <KeyboardAccelerator Key="Right" Invoked="RightArrow_Invoked" />
+        <KeyboardAccelerator Key="Left" Invoked="LeftArrow_Invoked" />
     </Page.KeyboardAccelerators>
 
     <Page.Resources>
+        <converters:BoolToBrushConverter x:Key="ActiveItemBrushConverter" TrueBrush="#B13BFF" FalseBrush="White" />
         <Storyboard x:Name="OsdFadeInStoryboard">
             <DoubleAnimation Storyboard.TargetName="OsdOverlay" Storyboard.TargetProperty="Opacity" To="0.5" Duration="0:0:0.1" />
         </Storyboard>
         <Storyboard x:Name="OsdFadeOutStoryboard">
             <DoubleAnimation Storyboard.TargetName="OsdOverlay" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.3" />
+        </Storyboard>
+        <Storyboard x:Name="SlideInStoryboard">
+            <DoubleAnimation Storyboard.TargetName="PlaylistTranslateTransform" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.25">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseOut" Exponent="4"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+        <Storyboard x:Name="SlideOutStoryboard">
+            <DoubleAnimation Storyboard.TargetName="PlaylistTranslateTransform" Storyboard.TargetProperty="X" To="360" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseOut" Exponent="4"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
         </Storyboard>
     </Page.Resources>
 
@@ -29,12 +47,7 @@
                 <!-- Populated dynamically in code-behind to match PotPlayer context menu -->
             </MenuFlyout>
         </Grid.ContextFlyout>
-        <Grid.ColumnDefinitions>
-            <!-- Video Area -->
-            <ColumnDefinition Width="*" />
-            <!-- Playlist Drawer -->
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
+
 
         <!-- Native Windows MediaPlayer Element -->
         <MediaPlayerElement Grid.Column="0" x:Name="VideoSurface" AreTransportControlsEnabled="False" Stretch="Uniform" />
@@ -187,8 +200,14 @@
             </Grid>
         </Grid>
 
+        <!-- Edge Trigger for Auto-Hide Playlist -->
+        <Border x:Name="PlaylistEdgeTrigger" Grid.Column="0" Width="20" HorizontalAlignment="Right" VerticalAlignment="Stretch" Background="Transparent" PointerEntered="PlaylistEdgeTrigger_PointerEntered" />
+
         <!-- Right Side: Playlist Drawer -->
-        <Border x:Name="PlaylistDrawer" Grid.Column="1" Width="360" Background="{StaticResource NevSurfaceBrush}" Visibility="Visible">
+        <Border x:Name="PlaylistDrawer" Grid.Column="0" Width="360" HorizontalAlignment="Right" Background="{StaticResource NevSurfaceBrush}" Visibility="Visible" PointerEntered="PlaylistDrawer_PointerEntered" PointerExited="PlaylistDrawer_PointerExited" PointerCanceled="PlaylistDrawer_PointerExited" PointerCaptureLost="PlaylistDrawer_PointerExited">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="PlaylistTranslateTransform" X="360" />
+            </Border.RenderTransform>
             <Grid Padding="24">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -208,7 +227,7 @@
                     </StackPanel>
                 </Grid>
                 
-                <ListView x:Name="PlaylistView" Grid.Row="1" Background="Transparent" ItemClick="PlaylistView_ItemClick" IsItemClickEnabled="True" CanReorderItems="True" AllowDrop="True" SelectionMode="Single">
+                <ListView x:Name="PlaylistView" Grid.Row="1" Background="Transparent" SelectionChanged="PlaylistView_SelectionChanged" IsItemClickEnabled="False" CanReorderItems="True" AllowDrop="True">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -225,7 +244,7 @@
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Width="64" Height="36" Background="#333333" CornerRadius="4" Margin="0,0,12,0" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Title}" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Title}" Foreground="{Binding IsPlaying, Converter={StaticResource ActiveItemBrushConverter}}" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding FilePath}" Style="{StaticResource NevCaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" Opacity="0.5" />
                                 </StackPanel>
                             </Grid>
