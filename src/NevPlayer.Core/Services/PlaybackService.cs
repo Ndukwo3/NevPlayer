@@ -12,6 +12,7 @@ namespace NevPlayer.Core.Services
         private int _currentIndex = -1;
         private bool _isVideoSurfaceReady = false;
         private TimeSpan? _pendingResumePosition;
+        private TimeSpan _lastHistoryUpdate = TimeSpan.Zero;
 
         public PlaybackService(IMediaPlayer engine, IPlaybackHistoryService? historyService = null)
         {
@@ -36,11 +37,12 @@ namespace NevPlayer.Core.Services
             _engine.PositionChanged += async (s, pos) => 
             {
                 Position = pos;
-                // Throttle history updates to every 5 seconds to avoid spamming the disk
-                if (pos.TotalSeconds % 5 < 1 && CurrentMedia != null)
+                // Throttle history updates to exactly once every 5 seconds to avoid spamming the disk and threads
+                if (CurrentMedia != null && _historyService != null)
                 {
-                    if (_historyService != null)
+                    if (pos.TotalSeconds - _lastHistoryUpdate.TotalSeconds >= 5 || _lastHistoryUpdate > pos)
                     {
+                        _lastHistoryUpdate = pos;
                         await _historyService.UpdateHistoryAsync(CurrentMedia, pos, Duration);
                     }
                 }
@@ -183,6 +185,7 @@ namespace NevPlayer.Core.Services
         {
             if (_currentIndex < _queue.Count - 1)
             {
+                _engine.Stop();
                 _currentIndex++;
                 NotifyMediaChanged();
                 _engine.Load(CurrentMedia!.FilePath);
@@ -198,6 +201,7 @@ namespace NevPlayer.Core.Services
         {
             if (_currentIndex > 0)
             {
+                _engine.Stop();
                 _currentIndex--;
                 NotifyMediaChanged();
                 _engine.Load(CurrentMedia!.FilePath);
@@ -310,6 +314,7 @@ namespace NevPlayer.Core.Services
             System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] PlayQueueItem called with index={index}");
             if (index >= 0 && index < _queue.Count)
             {
+                _engine.Stop();
                 _currentIndex = index;
                 NotifyMediaChanged();
                 System.Diagnostics.Debug.WriteLine($"[NevPlayer Diagnostics] PlayQueueItem triggering Load/Play for '{CurrentMedia?.Title}'");

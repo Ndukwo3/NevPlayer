@@ -230,8 +230,14 @@ namespace NevPlayer.App.Services
 
             try
             {
+                var oldMedia = _mediaPlayer.Media;
                 var media = new LibVLCSharp.Shared.Media(_libVLC!, filePath, FromType.FromPath);
                 _mediaPlayer.Media = media;
+                
+                if (oldMedia != null)
+                {
+                    oldMedia.Dispose();
+                }
             }
             catch (Exception ex)
             {
