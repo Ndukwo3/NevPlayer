@@ -140,7 +140,7 @@ namespace NevPlayer.App.Services
 
             if (_mediaPlayer != null)
             {
-                _mediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
+                _mediaPlayer.TimeChanged -= MediaPlayer_TimeChanged;
                 _mediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
                 try { _mediaPlayer.Dispose(); } catch { }
                 _mediaPlayer = null;
@@ -157,7 +157,7 @@ namespace NevPlayer.App.Services
 
         private void HookMediaPlayerEvents(MediaPlayer player)
         {
-            player.PositionChanged += MediaPlayer_PositionChanged;
+            player.TimeChanged += MediaPlayer_TimeChanged;
             player.LengthChanged += MediaPlayer_LengthChanged;
             
             player.Playing += (s, e) =>
@@ -211,10 +211,10 @@ namespace NevPlayer.App.Services
             }
         }
 
-        private void MediaPlayer_PositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e)
+        private void MediaPlayer_TimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
         {
             if (_mediaPlayer == null) return;
-            var positionMs = _mediaPlayer.Time;
+            var positionMs = e.Time;
             if (positionMs >= 0)
             {
                 _lastPosition = TimeSpan.FromMilliseconds(positionMs);
