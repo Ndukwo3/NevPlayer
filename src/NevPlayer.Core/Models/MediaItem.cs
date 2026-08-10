@@ -1,13 +1,35 @@
 using System;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace NevPlayer.Core.Models
 {
-    public class MediaItem
+    public class MediaItem : INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Title { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
         public TimeSpan Duration { get; set; } = TimeSpan.Zero;
+        
+        private bool _isPlaying = false;
+        public bool IsPlaying
+        {
+            get => _isPlaying;
+            set
+            {
+                if (_isPlaying != value)
+                {
+                    _isPlaying = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
         
         // Metadata fields
         public string Artist { get; set; } = string.Empty;

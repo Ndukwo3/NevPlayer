@@ -9,6 +9,7 @@
             <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter" />
             <converters:DateTimeToStringConverter x:Key="DateTimeToStringConverter" />
             <converters:StringToImageSourceConverter x:Key="StringToImageSourceConverter" />
+            <converters:ItemIndexConverter x:Key="ItemIndexConverter" />
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///Styles/Colors.xaml" />

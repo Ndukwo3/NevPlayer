@@ -39,6 +39,22 @@
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
         </Storyboard>
+        <Storyboard x:Name="BottomSlideInStoryboard">
+            <DoubleAnimation Storyboard.TargetName="BottomTranslateTransform" Storyboard.TargetProperty="Y" To="0" Duration="0:0:0.25">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseOut" Exponent="4"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="BottomControlDock" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.25" />
+        </Storyboard>
+        <Storyboard x:Name="BottomSlideOutStoryboard">
+            <DoubleAnimation Storyboard.TargetName="BottomTranslateTransform" Storyboard.TargetProperty="Y" To="150" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseOut" Exponent="4"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="BottomControlDock" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.3" />
+        </Storyboard>
     </Page.Resources>
 
     <Grid PointerWheelChanged="Grid_PointerWheelChanged" DoubleTapped="VideoSurface_DoubleTapped">
@@ -108,7 +124,10 @@
         </Grid>
 
         <!-- Bottom Controls Overlay (Visible over the video) -->
-        <Grid Grid.Column="0" VerticalAlignment="Bottom" Padding="40" Background="#99000000">
+        <Grid x:Name="BottomControlDock" Grid.Column="0" VerticalAlignment="Bottom" Padding="40" Background="#99000000" Opacity="0" PointerEntered="BottomControlDock_PointerEntered" PointerExited="BottomControlDock_PointerExited" PointerCanceled="BottomControlDock_PointerExited" PointerCaptureLost="BottomControlDock_PointerExited">
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="BottomTranslateTransform" Y="150" />
+            </Grid.RenderTransform>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -200,6 +219,9 @@
             </Grid>
         </Grid>
 
+        <!-- Edge Trigger for Auto-Hide Bottom Controls -->
+        <Border x:Name="BottomEdgeTrigger" Grid.Column="0" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Background="Transparent" PointerEntered="BottomEdgeTrigger_PointerEntered" />
+
         <!-- Edge Trigger for Auto-Hide Playlist -->
         <Border x:Name="PlaylistEdgeTrigger" Grid.Column="0" Width="20" HorizontalAlignment="Right" VerticalAlignment="Stretch" Background="Transparent" PointerEntered="PlaylistEdgeTrigger_PointerEntered" />
 
@@ -232,21 +254,27 @@
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="Padding" Value="0" />
-                            <Setter Property="Margin" Value="0,0,0,8" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="MinHeight" Value="28" />
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Grid Padding="8" Background="{StaticResource NevSurfaceElevatedBrush}" CornerRadius="{StaticResource NevControlCornerRadius}">
+                            <Grid Background="Transparent" Padding="8,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Width="64" Height="36" Background="#333333" CornerRadius="4" Margin="0,0,12,0" />
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Title}" Foreground="{Binding IsPlaying, Converter={StaticResource ActiveItemBrushConverter}}" Style="{StaticResource NevBodyTextBlockStyle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding FilePath}" Style="{StaticResource NevCaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" Opacity="0.5" />
-                                </StackPanel>
+                                
+                                <TextBlock Grid.Column="0" Text="{Binding Converter={StaticResource ItemIndexConverter}}" Foreground="{Binding IsPlaying, Converter={StaticResource ActiveItemBrushConverter}}" Style="{StaticResource NevCaptionTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,8,0" Opacity="0.7" Width="20"/>
+                                
+                                <FontIcon Grid.Column="1" Glyph="&#xE116;" FontSize="12" Foreground="{Binding IsPlaying, Converter={StaticResource ActiveItemBrushConverter}}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                
+                                <TextBlock Grid.Column="2" Text="{Binding Title}" Foreground="{Binding IsPlaying, Converter={StaticResource ActiveItemBrushConverter}}" Style="{StaticResource NevBodyTextBlockStyle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                
+                                <TextBlock Grid.Column="3" Text="{Binding FormattedDuration}" Foreground="{Binding IsPlaying, Converter={StaticResource ActiveItemBrushConverter}}" Style="{StaticResource NevCaptionTextBlockStyle}" VerticalAlignment="Center" Margin="12,0,0,0" Opacity="0.7" />
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>

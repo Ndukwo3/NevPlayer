@@ -11,6 +11,7 @@ namespace NevPlayer.App.Views
         private readonly IPlaybackService _playbackService;
         private DispatcherTimer _osdTimer;
         private DispatcherTimer _drawerHideTimer;
+        private DispatcherTimer _bottomDockHideTimer;
 
         private Windows.Media.Core.TimedMetadataTrack? _activeSubtitleTrack;
 
@@ -25,6 +26,9 @@ namespace NevPlayer.App.Views
 
             _drawerHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             _drawerHideTimer.Tick += DrawerHideTimer_Tick;
+
+            _bottomDockHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _bottomDockHideTimer.Tick += BottomDockHideTimer_Tick;
 
             Loaded += CinemaPage_Loaded;
             Unloaded += CinemaPage_Unloaded;
@@ -272,6 +276,9 @@ namespace NevPlayer.App.Views
 
         private void CinemaPage_Unloaded(object? sender, RoutedEventArgs e)
         {
+            _bottomDockHideTimer?.Stop();
+            _drawerHideTimer?.Stop();
+
             _playbackService.PositionChanged -= PlaybackService_PositionChanged;
             _playbackService.StateChanged    -= PlaybackService_StateChanged;
             _playbackService.Engine.DurationLoaded -= Engine_DurationLoaded;
@@ -607,17 +614,17 @@ namespace NevPlayer.App.Views
             }
         }
 
-        private UIElement? GetAppTitleBar()
+        private ShellPage? GetShellPage()
         {
             var app = Application.Current as App;
             var win = app?.MainWindow;
             if (win?.Content is ShellPage shell)
             {
-                return shell.AppTitleBarElement;
+                return shell;
             }
             if (win?.Content is Frame frame && frame.Content is ShellPage shellPage)
             {
-                return shellPage.AppTitleBarElement;
+                return shellPage;
             }
             return null;
         }
@@ -671,8 +678,8 @@ namespace NevPlayer.App.Views
             menu.Items.Add(new MenuFlyoutSeparator());
 
             // Fullscreen option
-            var titleBar = GetAppTitleBar();
-            var fsItem = new ToggleMenuFlyoutItem { Text = "Fullscreen", IsChecked = titleBar == null || titleBar.Visibility == Visibility.Collapsed };
+            var shell = GetShellPage();
+            var fsItem = new ToggleMenuFlyoutItem { Text = "Fullscreen", IsChecked = shell?.AppTitleBarElement?.Visibility == Visibility.Collapsed };
             fsItem.Click += (s, a) =>
             {
                 var app = Application.Current as App;
@@ -680,16 +687,18 @@ namespace NevPlayer.App.Views
                 if (win != null)
                 {
                     var presenter = win.AppWindow.Presenter;
-                    var bar = GetAppTitleBar();
+                    var currentShell = GetShellPage();
                     if (presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
                     {
+                        win.ExtendsContentIntoTitleBar = true;
                         win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
-                        if (bar != null) bar.Visibility = Visibility.Visible;
+                        currentShell?.SetFullscreenUI(false);
                     }
                     else
                     {
+                        win.ExtendsContentIntoTitleBar = false;
                         win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
-                        if (bar != null) bar.Visibility = Visibility.Collapsed;
+                        currentShell?.SetFullscreenUI(true);
                     }
                 }
             };
@@ -1205,6 +1214,28 @@ namespace NevPlayer.App.Views
             _drawerHideTimer.Start();
         }
 
+        private void BottomDockHideTimer_Tick(object? sender, object e)
+        {
+            _bottomDockHideTimer.Stop();
+            BottomSlideOutStoryboard.Begin();
+        }
+
+        private void BottomEdgeTrigger_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _bottomDockHideTimer.Stop();
+            BottomSlideInStoryboard.Begin();
+        }
+
+        private void BottomControlDock_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _bottomDockHideTimer.Stop();
+        }
+
+        private void BottomControlDock_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _bottomDockHideTimer.Start();
+        }
+
         private void VideoSurface_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
         {
             var app = Application.Current as App;
@@ -1212,17 +1243,19 @@ namespace NevPlayer.App.Views
             if (win != null)
             {
                 var presenter = win.AppWindow.Presenter;
-                var bar = GetAppTitleBar();
+                var shell = GetShellPage();
                 if (presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
                 {
+                    win.ExtendsContentIntoTitleBar = true;
                     win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
-                    if (bar != null) bar.Visibility = Visibility.Visible;
+                    shell?.SetFullscreenUI(false);
                     ShowOsd("Exit Fullscreen");
                 }
                 else
                 {
+                    win.ExtendsContentIntoTitleBar = false;
                     win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
-                    if (bar != null) bar.Visibility = Visibility.Collapsed;
+                    shell?.SetFullscreenUI(true);
                     ShowOsd("Fullscreen");
                 }
             }

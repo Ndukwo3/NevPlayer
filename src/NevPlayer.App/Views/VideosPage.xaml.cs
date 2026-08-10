@@ -239,15 +239,47 @@ namespace NevPlayer.App.Views
 
         private void MediaGridView_ItemClick(object sender, ItemClickEventArgs e)
         {
-            if (e.ClickedItem is MediaItem item)
+            try
             {
-                _playbackService?.ClearQueue();
-                _playbackService?.Enqueue(item, autoPlay: false);
-                
-                if (this.Frame != null)
+                if (e.ClickedItem is MediaItem item)
                 {
-                    this.Frame.Navigate(typeof(CinemaPage));
+                    _playbackService?.ClearQueue();
+                    
+                    if (VideoGridView.ItemsSource is System.Collections.Generic.IEnumerable<MediaItem> siblingItems)
+                    {
+                        var siblings = siblingItems.ToList();
+                        if (siblings.Count > 1)
+                        {
+                            foreach (var sibling in siblings)
+                            {
+                                _playbackService?.Enqueue(sibling, autoPlay: false);
+                            }
+                            int index = siblings.IndexOf(item);
+                            if (index >= 0)
+                            {
+                                _playbackService?.PlayQueueItem(index);
+                            }
+                        }
+                        else
+                        {
+                            _playbackService?.Enqueue(item, autoPlay: true);
+                        }
+                    }
+                    else 
+                    {
+                        _playbackService?.Enqueue(item, autoPlay: true);
+                    }
+                    
+                    if (this.Frame != null)
+                    {
+                        this.Frame.Navigate(typeof(CinemaPage));
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                System.IO.File.WriteAllText("crash_log.txt", ex.ToString());
+                throw;
             }
         }
         private void ClearVideos_Click(object sender, RoutedEventArgs e)

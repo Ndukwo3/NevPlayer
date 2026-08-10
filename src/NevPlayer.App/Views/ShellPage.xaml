@@ -38,8 +38,6 @@
                 <NavigationViewItem Tag="Home" Content="Home" Icon="Home" />
                 <NavigationViewItem Tag="Music" Content="Music" Icon="Audio" />
                 <NavigationViewItem Tag="Videos" Content="Videos" Icon="Video" />
-                <NavigationViewItem Tag="Favorites" Content="Favorites" Icon="Favorite" />
-                <NavigationViewItem Tag="History" Content="Recently Played" Icon="Clock" />
             </NavigationView.MenuItems>
             
             <!-- We wrap the Frame inside a Grid so we can layout the Frame and MiniPlayerDock vertically within NavigationView's content area -->

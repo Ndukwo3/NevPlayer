@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NevPlayer.Core.Models;
 using NevPlayer.Core.Services;
+using System.Linq;
 
 namespace NevPlayer.App.Views
 {
@@ -317,7 +318,26 @@ namespace NevPlayer.App.Views
             if (e.ClickedItem is MediaItem item)
             {
                 _playbackService?.ClearQueue();
-                _playbackService?.Enqueue(item);
+                
+                var dir = System.IO.Path.GetDirectoryName(item.FilePath);
+                var siblings = MediaItems.Where(m => System.IO.Path.GetDirectoryName(m.FilePath) == dir).ToList();
+                
+                if (siblings.Count > 1)
+                {
+                    foreach (var sibling in siblings)
+                    {
+                        _playbackService?.Enqueue(sibling, autoPlay: false);
+                    }
+                    int index = siblings.IndexOf(item);
+                    if (index >= 0)
+                    {
+                        _playbackService?.PlayQueueItem(index);
+                    }
+                }
+                else
+                {
+                    _playbackService?.Enqueue(item, autoPlay: true);
+                }
                 
                 if (this.Frame != null)
                 {

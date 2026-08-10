@@ -10,6 +10,7 @@ namespace NevPlayer.App.Views
     {
         private readonly IPlaybackHistoryService? _historyService;
         private readonly IPlaybackService? _playbackService;
+        private readonly IVideoLibraryService? _videoLibraryService;
         
         public ObservableCollection<HistoryItem> RecentItems { get; } = new ObservableCollection<HistoryItem>();
 
@@ -19,6 +20,7 @@ namespace NevPlayer.App.Views
             
             _historyService = App.HistoryService;
             _playbackService = App.PlaybackService;
+            _videoLibraryService = App.VideoLibraryService;
 
             LoadHistory();
         }
@@ -39,6 +41,7 @@ namespace NevPlayer.App.Views
         {
             if (e.ClickedItem is HistoryItem historyItem)
             {
+                System.Diagnostics.Debug.WriteLine("[LOG] ContinueWatching item clicked");
                 // Play it directly via the engine
                 var mediaItem = new MediaItem 
                 { 
@@ -49,12 +52,50 @@ namespace NevPlayer.App.Views
 
                 // Add to queue and play immediately
                 _playbackService?.ClearQueue();
-                _playbackService?.Enqueue(mediaItem);
                 
+                if (_videoLibraryService != null)
+                {
+                    try
+                    {
+                        var allVideos = _videoLibraryService.GetAllVideos();
+                        var matchedVideo = System.Linq.Enumerable.FirstOrDefault(allVideos, v => string.Equals(v.FilePath, historyItem.FilePath, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (matchedVideo != null)
+                        {
+                            var siblings = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Where(allVideos, v => v.Album == matchedVideo.Album));
+                            if (siblings.Count > 1)
+                            {
+                                foreach (var s in siblings)
+                                {
+                                    _playbackService?.Enqueue(s, autoPlay: false);
+                                }
+                                var targetIndex = siblings.IndexOf(matchedVideo);
+                                _playbackService?.PlayQueueItem(targetIndex);
+                            }
+                            else
+                            {
+                                _playbackService?.Enqueue(matchedVideo, autoPlay: true);
+                            }
+                        }
+                        else
+                        {
+                            _playbackService?.Enqueue(mediaItem, autoPlay: true);
+                        }
+                    }
+                    catch
+                    {
+                        _playbackService?.Enqueue(mediaItem, autoPlay: true);
+                    }
+                }
+                else
+                {
+                    _playbackService?.Enqueue(mediaItem, autoPlay: true);
+                }
                 // PlaybackService will automatically fetch the resume position when it loads.
                 // We just need to navigate back to the Cinema view
                 if (this.Frame != null)
                 {
+                    System.Diagnostics.Debug.WriteLine("[LOG] Navigation started");
                     this.Frame.Navigate(typeof(CinemaPage));
                 }
             }

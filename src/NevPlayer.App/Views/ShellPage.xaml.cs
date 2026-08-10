@@ -54,6 +54,26 @@ namespace NevPlayer.App.Views
 
         public Microsoft.UI.Xaml.UIElement AppTitleBarElement => AppTitleBar;
 
+        public void SetFullscreenUI(bool isFullscreen)
+        {
+            if (isFullscreen)
+            {
+                AppTitleBar.Visibility = Visibility.Collapsed;
+                NavView.IsPaneVisible = false;
+                // Move NavView to top row and span all rows to take over the screen
+                Grid.SetRow(NavView, 0);
+                Grid.SetRowSpan(NavView, 3);
+            }
+            else
+            {
+                AppTitleBar.Visibility = Visibility.Visible;
+                NavView.IsPaneVisible = true;
+                // Restore NavView grid position (below TitleBar)
+                Grid.SetRow(NavView, 1);
+                Grid.SetRowSpan(NavView, 2);
+            }
+        }
+
         private void ContentFrame_Navigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
             // Update the selected item in the NavigationView to match the page type we navigated to
