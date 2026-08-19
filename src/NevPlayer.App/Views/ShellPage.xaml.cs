@@ -39,6 +39,12 @@ namespace NevPlayer.App.Views
 
                 SyncMiniPlayerState();
             }
+
+            var app = Application.Current as App;
+            if (app?.MainWindow != null)
+            {
+                app.MainWindow.AppWindow.Changed += AppWindow_Changed;
+            }
         }
 
         private void ShellPage_Unloaded(object sender, RoutedEventArgs e)
@@ -50,6 +56,12 @@ namespace NevPlayer.App.Views
                 _playbackService.MediaChanged -= PlaybackService_MediaChanged;
                 _playbackService.Engine.DurationLoaded -= Engine_DurationLoaded;
             }
+
+            var app = Application.Current as App;
+            if (app?.MainWindow != null)
+            {
+                app.MainWindow.AppWindow.Changed -= AppWindow_Changed;
+            }
         }
 
         public Microsoft.UI.Xaml.UIElement AppTitleBarElement => AppTitleBar;
@@ -59,7 +71,9 @@ namespace NevPlayer.App.Views
             if (isFullscreen)
             {
                 AppTitleBar.Visibility = Visibility.Collapsed;
-                NavView.IsPaneVisible = false;
+                NavView.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
+                NavView.IsPaneToggleButtonVisible = false;
+                NavView.IsPaneOpen = false;
                 // Move NavView to top row and span all rows to take over the screen
                 Grid.SetRow(NavView, 0);
                 Grid.SetRowSpan(NavView, 3);
@@ -67,10 +81,28 @@ namespace NevPlayer.App.Views
             else
             {
                 AppTitleBar.Visibility = Visibility.Visible;
-                NavView.IsPaneVisible = true;
+                NavView.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
+                NavView.IsPaneToggleButtonVisible = true;
                 // Restore NavView grid position (below TitleBar)
                 Grid.SetRow(NavView, 1);
                 Grid.SetRowSpan(NavView, 2);
+            }
+        }
+
+        public void OpenNavPane()
+        {
+            if (NavView != null)
+            {
+                NavView.IsPaneOpen = true;
+            }
+        }
+
+        private void AppWindow_Changed(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
+        {
+            if (args.DidPresenterChange)
+            {
+                bool isFullscreen = sender.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen;
+                SetFullscreenUI(isFullscreen);
             }
         }
 

@@ -687,18 +687,13 @@ namespace NevPlayer.App.Views
                 if (win != null)
                 {
                     var presenter = win.AppWindow.Presenter;
-                    var currentShell = GetShellPage();
                     if (presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
                     {
-                        win.ExtendsContentIntoTitleBar = true;
                         win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
-                        currentShell?.SetFullscreenUI(false);
                     }
                     else
                     {
-                        win.ExtendsContentIntoTitleBar = false;
                         win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
-                        currentShell?.SetFullscreenUI(true);
                     }
                 }
             };
@@ -1236,6 +1231,16 @@ namespace NevPlayer.App.Views
             _bottomDockHideTimer.Start();
         }
 
+        private void LeftEdgeTrigger_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            var shell = GetShellPage();
+            // Only open on hover if we are in fullscreen (where the title bar is collapsed)
+            if (shell != null && shell.AppTitleBarElement.Visibility == Visibility.Collapsed)
+            {
+                shell.OpenNavPane();
+            }
+        }
+
         private void VideoSurface_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
         {
             var app = Application.Current as App;
@@ -1243,19 +1248,14 @@ namespace NevPlayer.App.Views
             if (win != null)
             {
                 var presenter = win.AppWindow.Presenter;
-                var shell = GetShellPage();
                 if (presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
                 {
-                    win.ExtendsContentIntoTitleBar = true;
                     win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
-                    shell?.SetFullscreenUI(false);
                     ShowOsd("Exit Fullscreen");
                 }
                 else
                 {
-                    win.ExtendsContentIntoTitleBar = false;
                     win.AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
-                    shell?.SetFullscreenUI(true);
                     ShowOsd("Fullscreen");
                 }
             }

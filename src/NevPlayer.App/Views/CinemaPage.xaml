@@ -225,6 +225,9 @@
         <!-- Edge Trigger for Auto-Hide Playlist -->
         <Border x:Name="PlaylistEdgeTrigger" Grid.Column="0" Width="20" HorizontalAlignment="Right" VerticalAlignment="Stretch" Background="Transparent" PointerEntered="PlaylistEdgeTrigger_PointerEntered" />
 
+        <!-- Edge Trigger for Auto-Hide Left Sidebar -->
+        <Border x:Name="LeftEdgeTrigger" Grid.Column="0" Width="20" HorizontalAlignment="Left" VerticalAlignment="Stretch" Background="Transparent" PointerEntered="LeftEdgeTrigger_PointerEntered" />
+
         <!-- Right Side: Playlist Drawer -->
         <Border x:Name="PlaylistDrawer" Grid.Column="0" Width="360" HorizontalAlignment="Right" Background="{StaticResource NevSurfaceBrush}" Visibility="Visible" PointerEntered="PlaylistDrawer_PointerEntered" PointerExited="PlaylistDrawer_PointerExited" PointerCanceled="PlaylistDrawer_PointerExited" PointerCaptureLost="PlaylistDrawer_PointerExited">
             <Border.RenderTransform>
