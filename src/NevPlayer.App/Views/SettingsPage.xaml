@@ -13,7 +13,7 @@
             <TextBlock Text="Settings" Style="{StaticResource NevTitleTextBlockStyle}" FontSize="42" FontWeight="Bold" />
 
             <!-- Appearance Section -->
-            <StackPanel Spacing="16">
+            <StackPanel Spacing="16" Visibility="Collapsed">
                 <TextBlock Text="APPEARANCE" Style="{StaticResource NevCaptionTextBlockStyle}" Foreground="#666666" />
                 <Border Background="{StaticResource NevSurfaceBrush}" CornerRadius="{StaticResource NevCardCornerRadius}" Padding="24">
                     <StackPanel Spacing="20">
@@ -48,7 +48,7 @@
                             </StackPanel>
                             <ToggleSwitch x:Name="ResumeToggle" Grid.Column="1" IsOn="True" VerticalAlignment="Center" Toggled="ResumeToggle_Toggled" />
                         </Grid>
-                        <Grid>
+                        <Grid Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
@@ -59,7 +59,7 @@
                             </StackPanel>
                             <ToggleSwitch x:Name="HardwareAccelToggle" Grid.Column="1" IsOn="True" VerticalAlignment="Center" Toggled="HardwareAccelToggle_Toggled" />
                         </Grid>
-                        <Grid>
+                        <Grid Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />

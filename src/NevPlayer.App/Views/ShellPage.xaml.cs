@@ -41,7 +41,7 @@ namespace NevPlayer.App.Views
             }
 
             var app = Application.Current as App;
-            if (app?.MainWindow != null)
+            if (app?.MainWindow?.AppWindow != null)
             {
                 app.MainWindow.AppWindow.Changed += AppWindow_Changed;
             }
@@ -58,7 +58,7 @@ namespace NevPlayer.App.Views
             }
 
             var app = Application.Current as App;
-            if (app?.MainWindow != null)
+            if (app?.MainWindow?.AppWindow != null)
             {
                 app.MainWindow.AppWindow.Changed -= AppWindow_Changed;
             }
