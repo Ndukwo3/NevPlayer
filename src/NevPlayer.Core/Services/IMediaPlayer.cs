@@ -38,11 +38,11 @@ namespace NevPlayer.Core.Services
         bool IsFullScreen { get; set; }
         
         // Extended Track Info APIs
-        System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks();
+        System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetSubtitleTracks();
         int GetActiveSubtitleTrackIndex();
         void SetSubtitleTrack(int index);
         
-        System.Collections.Generic.IReadOnlyList<string> GetAudioTracks();
+        System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetAudioTracks();
         int GetActiveAudioTrackIndex();
         void SetAudioTrack(int index);
 

@@ -382,20 +382,29 @@ namespace NevPlayer.App.Services
             _player.Dispose();
         }
 
-        public System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks()
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetSubtitleTracks()
         {
-            var list = new System.Collections.Generic.List<string>();
+            var list = new System.Collections.Generic.List<MediaTrackInfo>();
             if (_currentPlaybackItem != null)
             {
                 var tracks = _currentPlaybackItem.TimedMetadataTracks;
+                int activeIndex = GetActiveSubtitleTrackIndex();
+                int trackIdx = 0;
                 for (int i = 0; i < tracks.Count; i++)
                 {
                     var track = tracks[i];
                     if (track.TimedMetadataKind == TimedMetadataKind.Subtitle || track.TimedMetadataKind == TimedMetadataKind.ImageSubtitle)
                     {
                         var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
-                        var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {i + 1} ({lang})" : track.Label;
-                        list.Add(label);
+                        var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {trackIdx + 1}" : track.Label;
+                        list.Add(new MediaTrackInfo
+                        {
+                            Index = trackIdx,
+                            Language = lang,
+                            Name = label,
+                            IsActive = trackIdx == activeIndex
+                        });
+                        trackIdx++;
                     }
                 }
             }
@@ -414,7 +423,7 @@ namespace NevPlayer.App.Services
                     if (track.TimedMetadataKind == TimedMetadataKind.Subtitle || track.TimedMetadataKind == TimedMetadataKind.ImageSubtitle)
                     {
                         var mode = tracks.GetPresentationMode((uint)i);
-                        if (mode == TimedMetadataTrackPresentationMode.PlatformPresented)
+                        if (mode == TimedMetadataTrackPresentationMode.PlatformPresented || mode == TimedMetadataTrackPresentationMode.Hidden)
                         {
                             return subIdx;
                         }
@@ -450,18 +459,25 @@ namespace NevPlayer.App.Services
             }
         }
 
-        public System.Collections.Generic.IReadOnlyList<string> GetAudioTracks()
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetAudioTracks()
         {
-            var list = new System.Collections.Generic.List<string>();
+            var list = new System.Collections.Generic.List<MediaTrackInfo>();
             if (_currentPlaybackItem != null)
             {
                 var tracks = _currentPlaybackItem.AudioTracks;
+                int activeIndex = GetActiveAudioTrackIndex();
                 for (int i = 0; i < tracks.Count; i++)
                 {
                     var track = tracks[i];
                     var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : track.Language;
-                    var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {i + 1} ({lang})" : track.Label;
-                    list.Add(label);
+                    var label = string.IsNullOrWhiteSpace(track.Label) ? $"Track {i + 1}" : track.Label;
+                    list.Add(new MediaTrackInfo
+                    {
+                        Index = i,
+                        Language = lang,
+                        Name = label,
+                        IsActive = i == activeIndex
+                    });
                 }
             }
             return list;

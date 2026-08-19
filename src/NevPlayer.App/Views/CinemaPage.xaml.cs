@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NevPlayer.App.Services;
 using NevPlayer.Core.Services;
+using NevPlayer.Core.Helpers;
 
 namespace NevPlayer.App.Views
 {
@@ -606,6 +607,8 @@ namespace NevPlayer.App.Views
             picker.FileTypeFilter.Add(".srt");
             picker.FileTypeFilter.Add(".ass");
             picker.FileTypeFilter.Add(".vtt");
+            picker.FileTypeFilter.Add(".sub");
+            picker.FileTypeFilter.Add(".ssa");
 
             var file = await picker.PickSingleFileAsync();
             if (file != null)
@@ -715,34 +718,44 @@ namespace NevPlayer.App.Views
         private void PopulateSubtitleMenuHelper(System.Collections.Generic.IList<MenuFlyoutItemBase> itemsList)
         {
             // Show/Hide Subtitles Toggle
-            var isSubVisible = _activeSubtitleTrack != null;
+            var isSubVisible = (_playbackService.Engine is WindowsMediaPlayer wmpSub) ? _activeSubtitleTrack != null : _playbackService.Engine.GetActiveSubtitleTrackIndex() != -1;
             var showHideToggle = new ToggleMenuFlyoutItem { Text = "Show/Hide Subtitles", IsChecked = isSubVisible };
             showHideToggle.Click += (s, a) =>
             {
                 if (showHideToggle.IsChecked)
                 {
-                    // Find first subtitle track and activate
-                    var playbackItem = (_playbackService.Engine is WindowsMediaPlayer wmpSub) ? wmpSub.CurrentPlaybackItem : null;
-                    if (playbackItem != null && playbackItem.TimedMetadataTracks.Count > 0)
+                    if (_playbackService.Engine is WindowsMediaPlayer wmpSub2)
                     {
-                        var tracks = playbackItem.TimedMetadataTracks;
-                        for (int i = 0; i < tracks.Count; i++)
+                        var playbackItem = wmpSub2.CurrentPlaybackItem;
+                        if (playbackItem != null && playbackItem.TimedMetadataTracks.Count > 0)
                         {
-                            var track = tracks[i];
-                            if (track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Subtitle || 
-                                track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.ImageSubtitle)
+                            var tracks = playbackItem.TimedMetadataTracks;
+                            for (int i = 0; i < tracks.Count; i++)
                             {
-                                tracks.SetPresentationMode((uint)i, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Hidden);
-                                ActivateSubtitleTrack(track);
-                                break;
+                                var track = tracks[i];
+                                if (track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Subtitle || 
+                                    track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.ImageSubtitle)
+                                {
+                                    tracks.SetPresentationMode((uint)i, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Hidden);
+                                    ActivateSubtitleTrack(track);
+                                    break;
+                                }
                             }
                         }
+                    }
+                    else
+                    {
+                        _playbackService.Engine.SetSubtitleVisibility(true);
                     }
                     ShowOsd("Subtitles: Enabled");
                 }
                 else
                 {
-                    ActivateSubtitleTrack(null!);
+                    if (_playbackService.Engine is WindowsMediaPlayer)
+                    {
+                        ActivateSubtitleTrack(null!);
+                    }
+                    _playbackService.Engine.SetSubtitleVisibility(false);
                     ShowOsd("Subtitles: Disabled");
                 }
             };
@@ -760,85 +773,48 @@ namespace NevPlayer.App.Views
             itemsList.Add(new MenuFlyoutSeparator());
 
             // List available embedded tracks
-            var playbackItemSource = (_playbackService.Engine is WindowsMediaPlayer wmpTracks) ? wmpTracks.CurrentPlaybackItem : null;
-            if (playbackItemSource != null)
+            var subtitleTracks = _playbackService.Engine.GetSubtitleTracks();
+            if (subtitleTracks.Count > 0)
             {
-                var tracks = playbackItemSource.TimedMetadataTracks;
-                if (tracks.Count > 0)
+                foreach (var track in subtitleTracks)
                 {
-                    for (int i = 0; i < tracks.Count; i++)
+                    var trackIndex = track.Index;
+                    var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : LanguageHelper.GetFriendlyLanguageName(track.Language);
+                    var displayName = !string.IsNullOrWhiteSpace(track.Name) ? track.Name : $"Track {trackIndex + 1}";
+
+                    var trackItem = new ToggleMenuFlyoutItem 
+                    { 
+                        Text = displayName,
+                        IsChecked = track.IsActive
+                    };
+                    trackItem.Click += (s, a) =>
                     {
-                        var track = tracks[i];
-                        if (track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.Subtitle || 
-                            track.TimedMetadataKind == Windows.Media.Core.TimedMetadataKind.ImageSubtitle)
+                        if (_playbackService.Engine is WindowsMediaPlayer wmpTracks)
                         {
-                            var trackIndex = i;
-                            var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : GetFriendlyLanguageName(track.Language);
-
-                            // Show the original label exactly as named in the file; fall back only if empty
-                            var displayName = !string.IsNullOrWhiteSpace(track.Label) ? track.Label : $"Track {trackIndex + 1}";
-
-                            var trackItem = new ToggleMenuFlyoutItem 
-                            { 
-                                Text = displayName,
-                                IsChecked = track == _activeSubtitleTrack
-                            };
-                            trackItem.Click += (s, a) =>
+                            var nativeTracks = wmpTracks.CurrentPlaybackItem?.TimedMetadataTracks;
+                            if (nativeTracks != null)
                             {
-                                // Disable previous selected tracks first
-                                for (int j = 0; j < tracks.Count; j++)
+                                for (int j = 0; j < nativeTracks.Count; j++)
                                 {
-                                    tracks.SetPresentationMode((uint)j, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Disabled);
+                                    nativeTracks.SetPresentationMode((uint)j, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Disabled);
                                 }
-                                // Enable this track as Hidden so it raises events
-                                tracks.SetPresentationMode((uint)trackIndex, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Hidden);
-                                ActivateSubtitleTrack(track);
-                                ShowOsd($"Subtitles: {lang}");
-                            };
-                            itemsList.Add(trackItem);
+                                nativeTracks.SetPresentationMode((uint)trackIndex, Windows.Media.Playback.TimedMetadataTrackPresentationMode.Hidden);
+                                ActivateSubtitleTrack(nativeTracks[(int)trackIndex]);
+                            }
                         }
-                    }
-                }
-                else
-                {
-                    var emptyText = new MenuFlyoutItem { Text = "No Subtitles Detected", IsEnabled = false };
-                    itemsList.Add(emptyText);
+                        else
+                        {
+                            _playbackService.Engine.SetSubtitleTrack(trackIndex);
+                        }
+                        ShowOsd($"Subtitles: {lang}");
+                    };
+                    itemsList.Add(trackItem);
                 }
             }
             else
             {
-                var emptyText = new MenuFlyoutItem { Text = "No Media Loaded", IsEnabled = false };
+                var emptyText = new MenuFlyoutItem { Text = "No Subtitles Detected", IsEnabled = false };
                 itemsList.Add(emptyText);
-            }
-        }
-
-        private static string GetFriendlyLanguageName(string isoCode)
-        {
-            if (string.IsNullOrWhiteSpace(isoCode)) return "Unknown";
-            try
-            {
-                // Try getting culture name from ISO 639-1 or ISO 639-2 codes
-                var culture = new System.Globalization.CultureInfo(isoCode);
-                return culture.DisplayName;
-            }
-            catch
-            {
-                // Hardcode fallbacks for common media language codes if CultureInfo fails
-                var clean = isoCode.Trim().ToLowerInvariant();
-                switch (clean)
-                {
-                    case "eng": case "en": return "English";
-                    case "jpn": case "ja": return "Japanese";
-                    case "spa": case "es": return "Spanish";
-                    case "fre": case "fra": case "fr": return "French";
-                    case "ger": case "deu": case "de": return "German";
-                    case "chi": case "zho": case "zh": return "Chinese";
-                    case "rus": case "ru": return "Russian";
-                    case "kor": case "ko": return "Korean";
-                    case "por": case "pt": return "Portuguese";
-                    case "ita": case "it": return "Italian";
-                    default: return isoCode; // Fallback to raw code
-                }
             }
         }
 
@@ -852,46 +828,35 @@ namespace NevPlayer.App.Views
             itemsList.Add(new MenuFlyoutSeparator());
 
             // List available audio tracks
-            var playbackItem = (_playbackService.Engine is WindowsMediaPlayer wmpAudio) ? wmpAudio.CurrentPlaybackItem : null;
-            if (playbackItem != null)
+            var audioTracks = _playbackService.Engine.GetAudioTracks();
+            if (audioTracks.Count > 0)
             {
-                var tracks = playbackItem.AudioTracks;
-                if (tracks.Count > 0)
+                foreach (var track in audioTracks)
                 {
-                    int activeIndex = tracks.SelectedIndex;
-                    for (int i = 0; i < tracks.Count; i++)
-                    {
-                        var track = tracks[i];
-                        var trackIndex = i;
-                        var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : GetFriendlyLanguageName(track.Language);
-                        var label = string.IsNullOrWhiteSpace(track.Label) ? $"Audio {trackIndex + 1}" : track.Label;
-                        
-                        var displayName = (label.Equals(track.Language, StringComparison.OrdinalIgnoreCase) || label.StartsWith("Audio Track", StringComparison.OrdinalIgnoreCase)) 
-                            ? lang 
-                            : $"{lang} ({label})";
+                    var trackIndex = track.Index;
+                    var lang = string.IsNullOrWhiteSpace(track.Language) ? "Unknown" : LanguageHelper.GetFriendlyLanguageName(track.Language);
+                    var label = string.IsNullOrWhiteSpace(track.Name) ? $"Audio {trackIndex + 1}" : track.Name;
+                    
+                    var displayName = (label.Equals(track.Language, StringComparison.OrdinalIgnoreCase) || label.StartsWith("Audio Track", StringComparison.OrdinalIgnoreCase) || label.StartsWith("Track ", StringComparison.OrdinalIgnoreCase)) 
+                        ? lang 
+                        : $"{lang} ({label})";
 
-                        var trackItem = new ToggleMenuFlyoutItem 
-                        { 
-                            Text = displayName,
-                            IsChecked = trackIndex == activeIndex
-                        };
-                        trackItem.Click += (s, a) =>
-                        {
-                            tracks.SelectedIndex = trackIndex;
-                            ShowOsd($"Audio: {lang}");
-                        };
-                        itemsList.Add(trackItem);
-                    }
-                }
-                else
-                {
-                    var emptyText = new MenuFlyoutItem { Text = "No Audio Streams Detected", IsEnabled = false };
-                    itemsList.Add(emptyText);
+                    var trackItem = new ToggleMenuFlyoutItem 
+                    { 
+                        Text = displayName,
+                        IsChecked = track.IsActive
+                    };
+                    trackItem.Click += (s, a) =>
+                    {
+                        _playbackService.Engine.SetAudioTrack(trackIndex);
+                        ShowOsd($"Audio: {lang}");
+                    };
+                    itemsList.Add(trackItem);
                 }
             }
             else
             {
-                var emptyText = new MenuFlyoutItem { Text = "No Media Loaded", IsEnabled = false };
+                var emptyText = new MenuFlyoutItem { Text = "No Audio Streams Detected", IsEnabled = false };
                 itemsList.Add(emptyText);
             }
         }

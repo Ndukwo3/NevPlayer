@@ -18,11 +18,11 @@ namespace NevPlayer.Media
         public TimeSpan Duration => TimeSpan.Zero;
         public bool IsFullScreen { get; set; }
 
-        public System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks() => Array.Empty<string>();
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetSubtitleTracks() => Array.Empty<MediaTrackInfo>();
         public int GetActiveSubtitleTrackIndex() => -1;
         public void SetSubtitleTrack(int index) { }
 
-        public System.Collections.Generic.IReadOnlyList<string> GetAudioTracks() => Array.Empty<string>();
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetAudioTracks() => Array.Empty<MediaTrackInfo>();
         public int GetActiveAudioTrackIndex() => -1;
         public void SetAudioTrack(int index) { }
 

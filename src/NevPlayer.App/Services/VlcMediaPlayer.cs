@@ -409,17 +409,27 @@ namespace NevPlayer.App.Services
             ReleaseNativeResources();
         }
 
-        public System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks()
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetSubtitleTracks()
         {
-            var list = new System.Collections.Generic.List<string>();
+            var list = new System.Collections.Generic.List<MediaTrackInfo>();
             var descriptions = _mediaPlayer?.SpuDescription;
-            if (descriptions != null)
+            if (descriptions != null && _mediaPlayer != null)
             {
+                var activeId = _mediaPlayer.Spu;
+                int idx = 0;
                 foreach (var desc in descriptions)
                 {
                     if (desc.Id != -1)
                     {
-                        list.Add(desc.Name ?? $"Track {desc.Id}");
+                        // VLC usually places language code in desc.Name or desc.Description, but we only have Name in the struct
+                        list.Add(new MediaTrackInfo
+                        {
+                            Index = idx,
+                            Name = desc.Name ?? $"Track {idx + 1}",
+                            Language = desc.Name ?? "", // VLC mixes them, we can refine later
+                            IsActive = desc.Id == activeId
+                        });
+                        idx++;
                     }
                 }
             }
@@ -466,17 +476,26 @@ namespace NevPlayer.App.Services
             }
         }
 
-        public System.Collections.Generic.IReadOnlyList<string> GetAudioTracks()
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetAudioTracks()
         {
-            var list = new System.Collections.Generic.List<string>();
+            var list = new System.Collections.Generic.List<MediaTrackInfo>();
             var descriptions = _mediaPlayer?.AudioTrackDescription;
-            if (descriptions != null)
+            if (descriptions != null && _mediaPlayer != null)
             {
+                var activeId = _mediaPlayer.AudioTrack;
+                int idx = 0;
                 foreach (var desc in descriptions)
                 {
                     if (desc.Id != -1)
                     {
-                        list.Add(desc.Name ?? $"Track {desc.Id}");
+                        list.Add(new MediaTrackInfo
+                        {
+                            Index = idx,
+                            Name = desc.Name ?? $"Track {idx + 1}",
+                            Language = desc.Name ?? "",
+                            IsActive = desc.Id == activeId
+                        });
+                        idx++;
                     }
                 }
             }

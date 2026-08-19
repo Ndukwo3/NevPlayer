@@ -215,11 +215,11 @@ namespace NevPlayer.App.Services
         public void CycleAudioTrack() => ActiveEngine.CycleAudioTrack();
         public void SetAudioDelay(double delayInSeconds) => ActiveEngine.SetAudioDelay(delayInSeconds);
 
-        public System.Collections.Generic.IReadOnlyList<string> GetSubtitleTracks() => ActiveEngine.GetSubtitleTracks();
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetSubtitleTracks() => ActiveEngine.GetSubtitleTracks();
         public int GetActiveSubtitleTrackIndex() => ActiveEngine.GetActiveSubtitleTrackIndex();
         public void SetSubtitleTrack(int index) => ActiveEngine.SetSubtitleTrack(index);
 
-        public System.Collections.Generic.IReadOnlyList<string> GetAudioTracks() => ActiveEngine.GetAudioTracks();
+        public System.Collections.Generic.IReadOnlyList<MediaTrackInfo> GetAudioTracks() => ActiveEngine.GetAudioTracks();
         public int GetActiveAudioTrackIndex() => ActiveEngine.GetActiveAudioTrackIndex();
         public void SetAudioTrack(int index) => ActiveEngine.SetAudioTrack(index);
 
